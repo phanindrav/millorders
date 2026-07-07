@@ -1,0 +1,220 @@
+<%
+  function formatDate(dateStr) {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const suffix =
+      day % 10 === 1 && day !== 11 ? "st" :
+      day % 10 === 2 && day !== 12 ? "nd" :
+      day % 10 === 3 && day !== 13 ? "rd" : "th";
+    const options = { month: "short" };
+    const month = date.toLocaleString("en-US", options);
+    return `${day}${suffix} ${month}, ${date.getFullYear()}`;
+  }
+%>
+
+<div class="container">
+  <h3>All Agents Report</h3>
+  <div class="d-flex justify-content-between mb-2">
+    <button id="printBtn" class="btn btn-success btn-sm">Print</button>
+  </div>
+    <div id="reportTableWrapper">
+
+        <% reports.forEach((rep, idx) => { 
+          let rowCounts = {};
+          let totals = {};
+          let grandTotalQuintals = 0;
+          let grandTotalAmount = 0;
+
+          rep.reportData.forEach(o => {
+            rowCounts[o.OrderId] = (rowCounts[o.OrderId] || 0) + 1;
+            if (!totals[o.OrderId]) totals[o.OrderId] = { quintals: 0, amount: 0 };
+            totals[o.OrderId].quintals += Number(o.Quintals || 0);
+            totals[o.OrderId].amount += Number(o.Amount || 0);
+            grandTotalQuintals += Number(o.Quintals || 0);
+            grandTotalAmount += Number(o.Amount || 0);
+          });
+        %>
+        <% if (rep.reportData.length > 0) { %>
+          <div class="agent-report mb-4" style="page-break-after: always;">
+            <% if (rep.reportData.length > 0) { %>
+              <table class="table table-bordered table-sm account-table">
+                <thead class="table-light">
+                  <tr><th colspan="8"><%= rep.agent.AgentName %> - <%= formatDate(rep.today) %></th></tr>
+                  <tr>
+                    <th>Order</th>
+                    <th>Item - Brand</th>
+                    <th>Bags</th>
+                    <th>Kgs</th>
+                    <th>Quintals</th>
+                    <th>Rate : Condition</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% let lastOrderId = null; 
+                    rep.reportData.forEach(o => { %>
+                    <tr>
+                      <% if (lastOrderId !== o.OrderId) { %>
+                        <td rowspan="<%= rowCounts[o.OrderId] %>">
+                          <b><%= o.ShopName %><% if (o.Place) { %> - <%= o.Place %><% } %></b><br/>
+                          Order Id: <b><%= o.OrderId %></b> - <%= formatDate(o.Date) %><br/>
+                          <% if (o.PhoneNumber) { %><%= o.PhoneNumber %><br/><% } %>
+                          Quintals: <%= totals[o.OrderId].quintals.toFixed(2) %><br/>
+                          Amount: <%= totals[o.OrderId].amount.toLocaleString("en-IN") %>
+                        </td>
+                      <% } %>
+                      <td><%= o.ItemName %> - <%= o.Brand %></td>
+                      <td class="text-end"><%= o.Bags %></td>
+                      <td class="text-end"><%= o.Kgs %></td>
+                      <td class="text-end"><%= o.Quintals %></td>
+                      <td class="text-end"><%= o.Rate %> : <%= o.Condition %></td>
+                      <td class="text-end"><%= Number(o.Amount).toLocaleString("en-IN") %></td>
+                      <td><%= o.Status %></td>
+                    </tr>
+                    <% lastOrderId = o.OrderId; %>
+                  <% }) %>
+                </tbody>
+                <tfoot>
+                  <tr style="font-weight:bold; background:#f9f9f9;">
+                    <td colspan="4" class="text-end">Grand Totals</td>
+                    <td class="text-end"><%= grandTotalQuintals.toFixed(2) %></td>
+                    <td></td>
+                    <td class="text-end"><%= grandTotalAmount.toLocaleString("en-IN") %></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            <% } else { %>
+              <div class="alert alert-info">No records found.</div>
+            <% } %>
+
+            <% if (rep.summaryRiceBrand && rep.summaryRiceBrand.length > 0) { 
+              let totalKgs = 0, totalBags = 0, totalQuintals = 0;
+              rep.summaryRiceBrand.forEach(r => {
+                totalKgs += Number(r.Kgs || 0);
+                totalBags += Number(r.Bags || 0);
+                totalQuintals += Number(r.Quintals || 0);
+              });
+            %>
+              
+              <div class="row">
+                <!-- Table -->
+                <div class="col-auto">
+                  <div class="table-responsive" style="max-width:500px;">
+                    <table class="table table-bordered table-sm table-striped text-nowrap align-middle" style="font-size: 0.85rem;">
+                      <thead class="table-light">
+                        <tr>
+                          <th colspan="4" class="text-center">
+                            <%= rep.agent.AgentName %> - <%= formatDate(rep.today) %>
+                          </th>
+                        </tr>
+                        <tr>
+                          <th>Rice Type - Brand</th>
+                          <th class="text-end">Kgs</th>
+                          <th class="text-end">Bags</th>
+                          <th class="text-end">Quintals</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% rep.summaryRiceBrand.forEach(r => { %>
+                          <tr>
+                            <td><%= r.RiceType %> - <%= r.BrandName %></td>
+                            <td class="text-end"><%= r.Kgs %></td>
+                            <td class="text-end"><%= r.Bags %></td>
+                            <td class="text-end"><%= Number(r.Quintals).toFixed(2) %></td>
+                          </tr>
+                        <% }) %>
+                      </tbody>
+                      <tfoot>
+                        <tr style="font-weight:bold; background:#f9f9f9;">
+                          <td class="text-end">Grand Total</td>
+                          <td class="text-end"><%= totalKgs %></td>
+                          <td class="text-end"><%= totalBags %></td>
+                          <td class="text-end"><%= totalQuintals.toFixed(2) %></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Summary Text -->
+                <!-- <div class="col align-self-center" style="font-size:0.9rem;">
+                  <% if (rep.summaryRice && rep.summaryRice.length > 0) { %>
+                    <p>
+                      <% rep.summaryRice.forEach((r, i) => { %>
+                        <b><%= r.RiceType %></b>
+                        (<%= Number(r.Quintals).toFixed(2) %>)
+                        <%= i < rep.summaryRice.length - 1 ? ", " : "" %>
+                      <% }) %>
+                    </p>
+                  <% } %>
+                </div> -->
+              </div>
+          <% } %>
+          </div>
+          <% } %>
+              
+      <% }) %>
+    </div>
+</div>
+
+<style>
+@media print {
+  .agent-report {
+    page-break-after: always;
+  }
+}
+</style>
+
+<script>
+ $("#printBtn").on("click", function () {
+  const printContents = document.getElementById("reportTableWrapper").innerHTML;
+  const win = window.open("", "", "height=800,width=1100");
+
+  // Format today’s date (server-side EJS fallback also possible)
+  const now = new Date();
+  const options = { day: "numeric", month: "short", year: "2-digit" };
+  const formattedDate = now.toLocaleDateString("en-GB", options).replace(",", "");
+
+  win.document.write("<html><head><title>Agent Report</title>");
+  win.document.write("<style>");
+  win.document.write(`
+    body { font-family: "Times New Roman", serif; font-size: 11pt; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table, th, td { border: 1px solid black !important; }
+    th, td { padding: 4px; }
+    thead { font-weight: bold; background: #f2f2f2; }
+    .table-dark { background: #444; color: #fff; }
+
+    @page {
+      margin: 20mm;
+    }
+
+    body::before {
+      content: "${formattedDate}
+      position: fixed;
+      top: 0;
+      right: 0;
+      font-size: 10pt;
+    }
+  `);
+  win.document.write("</style></head><body>");
+  win.document.write(printContents);
+  win.document.write("</body></html>");
+  win.document.close();
+
+  // Add a slight delay before printing to allow the content to render
+  setTimeout(() => {
+    win.print();
+  }, 500); // 500ms should be sufficient
+
+  // To close the new window after printing (or if the user cancels)
+  // This will also require a slight delay to avoid conflicts.
+  setTimeout(() => {
+    win.close();
+  }, 1000);
+});
+
+</script>

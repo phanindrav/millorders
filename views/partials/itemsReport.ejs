@@ -1,0 +1,204 @@
+<!-- Agent Dropdown -->
+<div class="container mt-3">
+  <div class="row g-2">
+    <div class="col-auto">
+      <label for="agentSelect" class="col-form-label">Select Agent:</label>
+    </div>
+    <div class="col-auto">
+      <select id="agentSelect" name="agentId" class="form-select form-select-sm">
+  <option value="all" <%= selectedAgent === "all" ? "selected" : "" %>>All Agents</option>
+  <% agents.forEach(a => { %>
+    <option value="<%= a.AgentId %>" <%= selectedAgent == a.AgentId ? "selected" : "" %>>
+      <%= a.AgentName %>
+    </option>
+  <% }) %>
+</select>
+    </div>
+  </div>
+</div>
+
+<!-- Print button OUTSIDE print area -->
+<div class="container mt-3 d-flex justify-content-end d-print-none">
+  <button class="btn btn-primary btn-sm" onclick="printReport()">🖨 Print</button>
+</div>
+
+<%
+  function getDayWithSuffix(day) {
+    if (day > 3 && day < 21) return day + 'th';
+    switch (day % 10) {
+      case 1: return day + 'st';
+      case 2: return day + 'nd';
+      case 3: return day + 'rd';
+      default: return day + 'th';
+    }
+  }
+
+  const now = new Date();
+  const day = getDayWithSuffix(now.getDate());
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const month = monthNames[now.getMonth()];
+  const year = now.getFullYear().toString().slice(-2);
+
+  let hours = now.getHours();
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'p.m.' : 'a.m.';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // hour '0' should be '12'
+  const formattedHour = hours.toString().padStart(2, '0');
+%>
+
+<div id="printArea">
+  <!-- Item Summary -->
+<div class="container mt-4" style="max-width:30%; margin-left:0;">
+  <table class="table table-bordered table-sm w-auto">
+    <thead class="table-light">
+      <tr>
+        <th colspan="2" class="text-center">
+            <%= agentName %> on <%= day %> <%= month %>, <%= year %> - <%= formattedHour %>:<%= minutes %> <%= ampm %> 
+        </th>
+      </tr>
+      <tr>
+        <th style="width: 60%;">Item</th>
+        <th class="text-end" style="width: 50%;">Quintals</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% let totalQuintalsSummary = 0; %> <!-- Initialize the total for summary -->
+      <% summary.forEach(row => { %>
+        <tr>
+          <td><%= row.ItemName %></td>
+          <td class="text-end"><%= formatNumber(row.Quintals) %></td>
+        </tr>
+        <% totalQuintalsSummary += row.Quintals; %> <!-- Add quintals to total -->
+      <% }) %>
+    </tbody>
+    <tfoot>
+      <tr>
+        <th>Total</th>
+        <th class="text-end"><%= formatNumber(totalQuintalsSummary) %></th> <!-- Display the total -->
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+
+<!-- Page break -->
+<div style="page-break-before: always;"></div>
+
+<!-- Item Details (Grouped with Rowspan) -->
+<div class="container mt-4 text-start" style="max-width:70%; margin-left:0;">
+  <h4>
+      
+    </h4>
+  <div class="table-responsive">
+    <table class="table table-bordered table-sm mb-0 w-auto">
+      <thead class="table-light">
+        <tr>
+          <th colspan="4" class="text-center">
+            <%= agentName %> on <%= day %> <%= month %>, <%= year %> - <%= formattedHour %>:<%= minutes %> <%= ampm %> 
+          </th>
+        </tr>
+        <tr>
+          <th style="width: 30%;">Item</th>
+          <th style="width: 25%;">Brand - Kgs</th>
+          <th style="width: 15%;" class="text-end">Total Bags</th>
+          <th style="width: 15%;" class="text-end">Quintals</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% let totalBagsDetails = 0; %> <!-- Initialize total bags and quintals for details -->
+        <% let totalQuintalsDetails = 0; %>
+        <%
+          let grouped = {};
+
+          details
+            .sort((a,b) => a.Odr - b.Odr)
+            .forEach(row => {
+              if (!grouped[row.Odr]) grouped[row.Odr] = [];
+              grouped[row.Odr].push(row);
+            });
+
+          Object.keys(grouped)
+            .sort((a,b) => a - b)
+            .forEach(odr => {
+
+              let rows = grouped[odr];
+              let totalQuintals = rows.reduce((sum, r) => sum + r.TotalQuintals, 0);
+        %>
+
+          <% rows.forEach((row, idx) => { %>
+            <tr>
+              <% if (idx === 0) { %>
+                <!-- rowspan for ItemName with Total Quintals -->
+                <td rowspan="<%= rows.length %>">
+                  <%= row.ItemName %> <i>(<%= formatNumber(totalQuintals) %>)</i>
+                </td>
+              <% } %>
+
+              <!-- Brand and values -->
+              <td><%= row.Brand %> - <%= row.Kgs %> Kgs</td>
+              <td class="text-end"><%= row.TotalBags %></td>
+              <td class="text-end"><%= formatNumber(row.TotalQuintals) %></td>
+            </tr>
+            <% totalBagsDetails += row.TotalBags; %> <!-- Add Total Bags to the total -->
+            <% totalQuintalsDetails += row.TotalQuintals; %> <!-- Add Total Quintals to the total -->
+          <% }) %>
+
+        <% }) %>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th>Total</th>
+          <th class="text-end"></th>
+          <th class="text-end"><%= formatNumber(totalBagsDetails) %></th> <!-- Display total bags -->
+          <th class="text-end"><%= formatNumber(totalQuintalsDetails) %></th> <!-- Display total quintals -->
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+
+<script>
+
+  $("#agentSelect").on("change", function () {
+    const agentId = $(this).val();
+    if (agentId) {
+      $("#content-area").load(`/reports/item-summary/${agentId}`);
+    } else {
+      $("#content-area").html("");
+    }
+  });
+
+
+  function printReport() {
+    const printContents = document.getElementById("printArea").innerHTML;
+    const win = window.open("", "", "height=800,width=1100");
+    win.document.write("<html><head><title>Report</title>");
+    win.document.write("<style>");
+    win.document.write(`
+      body {
+        font-family: "Times New Roman", serif;
+        font-size: 11pt;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        border: 1px solid black;
+        padding: 4px;
+      }
+      thead {
+        font-weight: bold;
+        background: #f2f2f2;
+      }
+      .text-end { text-align: right; }
+    `);
+    win.document.write("</style></head><body>");
+    win.document.write(printContents);
+    win.document.write("</body></html>");
+    win.document.close();
+    win.print();
+  }
+</script>

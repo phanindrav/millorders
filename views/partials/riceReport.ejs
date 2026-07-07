@@ -1,0 +1,125 @@
+<%
+  function formatDate(dateStr) {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const suffix =
+      day % 10 === 1 && day !== 11 ? "st" :
+      day % 10 === 2 && day !== 12 ? "nd" :
+      day % 10 === 3 && day !== 13 ? "rd" : "th";
+    const options = { month: "short" };
+    const month = date.toLocaleString("en-US", options);
+    return `${day}${suffix} ${month}, ${date.getFullYear()}`;
+  }
+%>
+
+<div class="container mt-4">
+  <h3>Rice Report</h3>
+
+  <!-- Dropdown -->
+  <div class="mb-3">
+    <label for="riceDropdown">Select Rice:</label>
+    <select id="riceDropdown" class="form-select form-select-sm">
+      <option value="all" <%= selectedRice === "all" ? "selected" : "" %>>All Rice</option>
+      <% items.forEach(r => { %>
+        <option value="<%= r.RiceId %>" <%= selectedRice == r.RiceId ? "selected" : "" %>>
+          <%= r.Name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+
+  <h5>Showing: <%= riceName %></h5>
+
+  <!-- Report Table -->
+  <div id="reportTableWrapper">
+    <table class="table table-bordered table-sm">
+      <thead class="table-light">
+        <tr>
+          <th>Date</th>
+          <th>Order Id</th>
+          <th>Shop</th>
+          <th>Item-Brand</th>
+          <th>Bags</th>
+          <th>Kgs</th>
+          <th class="text-end">Quintals</th>
+          <th class="text-end">Rate</th>
+          <th class="text-end">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (details.length > 0) { %>
+          <% details.forEach(d => { 
+            
+            const formattedRate = new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: "INR",
+              minimumFractionDigits: Number.isInteger(d.Rate) ? 0 : 2,
+              maximumFractionDigits: 2
+            }).format(d.Rate);
+
+
+            const formattedAmount = new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: "INR",
+              minimumFractionDigits: Number.isInteger(d.Rate) ? 0 : 2,
+              maximumFractionDigits: 2
+            }).format(d.Amount);
+            
+            %>
+            <tr>
+              <td><%= formatDate(d.Date) %></td>
+              <td><%= d.OrderId %></td>
+              <td><%= d.ShopName %>, <%= d.Place %><br/><%= d.PhoneNumber %></td>
+              <td><%= d.ItemName %>-<%= d.Brand %>  <i><br/><%= d.Notes %></i></td>
+              <td class="text-end"><%= d.Bags %></td>
+              <td class="text-end"><%= d.Kgs %></td>
+              <td class="text-end"><%= d.Quintals %></td>
+              <td class="text-end"><%= formattedRate %>:<%= d.Condition %></td>
+              <td class="text-end"><%= formattedAmount %></td>
+            </tr>
+          <% }) %>
+        <% } else { %>
+          <tr><td colspan="14" class="text-center">No records found</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Print Button -->
+  <div class="mt-3 d-flex justify-content-end d-print-none">
+    <button id="printBtn" class="btn btn-primary btn-sm">🖨 Print</button>
+  </div>
+</div>
+
+<script>
+  // Dropdown change → load into #content-area (AJAX style, no redirect)
+  $("#riceDropdown").on("change", function () {
+    const riceId = $(this).val();
+    if (riceId) {
+      $("#content-area").load(`/reports/rice-report/${riceId}`);
+    } else {
+      $("#content-area").html("");
+    }
+  });
+
+  // Print only the report table
+  $("#printBtn").on("click", function () {
+    const printContents = document.getElementById("reportTableWrapper").innerHTML;
+    const win = window.open("", "", "height=800,width=1100");
+    win.document.write("<html><head><title>Rice Report</title>");
+    win.document.write("<style>");
+    win.document.write(`
+      body { font-family: "Times New Roman", serif; font-size: 11pt; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 4px; }
+      th { background: #f8f9fa; }
+      .text-end { text-align: right; }
+    `);
+    win.document.write("</style></head><body>");
+    win.document.write(printContents);
+    win.document.write("</body></html>");
+    win.document.close();
+    win.print();
+  });
+</script>

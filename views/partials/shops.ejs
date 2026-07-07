@@ -1,0 +1,247 @@
+<div class="card-panel table-card">
+  <div class="card-body p-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+      <div>
+        <h3 class="h4 mb-1">Manage Shops</h3>
+        <p class="text-muted mb-0">Track shop details and assign them to agents with ease.</p>
+      </div>
+      <span class="badge badge-soft rounded-pill">Customer list</span>
+    </div>
+
+    <form id="addShopForm" class="row g-3 mb-4">
+      <div class="col-md-4">
+        <label for="shopName" class="form-label">Shop Name</label>
+        <input type="text" class="form-control" id="shopName" required />
+      </div>
+      <div class="col-md-4">
+        <label for="agentId" class="form-label">Agent</label>
+        <select class="form-select" id="agentId" required>
+          <option value="">Select Agent</option>
+          <% agents.forEach(agent => { %>
+            <option value="<%= agent.AgentId %>"><%= agent.AgentName %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="place" class="form-label">Place</label>
+        <input type="text" class="form-control" id="place" />
+      </div>
+      <div class="col-md-4">
+        <label for="address" class="form-label">Address</label>
+        <input type="text" class="form-control" id="address" />
+      </div>
+      <div class="col-md-4">
+        <label for="phoneNumber" class="form-label">Phone Number</label>
+        <input type="text" class="form-control" id="phoneNumber" />
+      </div>
+      <div class="col-md-4">
+        <label for="gst" class="form-label">GST</label>
+        <input type="text" class="form-control" id="gst" />
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-success">Add Shop</button>
+      </div>
+    </form>
+
+    <div class="mb-3 mt-2">
+      <input type="text" id="shopSearch" class="form-control" placeholder="Search shops by name, place or agent...">
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Shop ID</th>
+            <th>Shop Name</th>
+            <th>Agent</th>
+            <th>Place</th>
+            <th>Address</th>
+            <th>Phone Number</th>
+            <th>GST</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="shopsTableBody">
+          <% shops.forEach(shop => { %>
+            <tr data-id="<%= shop.ShopId %>">
+              <td><%= shop.ShopId %></td>
+              <td><%= shop.ShopName %></td>
+              <td data-agent-id="<%= shop.AgentId %>"><%= shop.AgentName %></td>
+              <td><%= shop.Place %></td>
+              <td><%= shop.Address %></td>
+              <td><%= shop.PhoneNumber %></td>
+              <td><%= shop.GST %></td>
+              <td class="text-end">
+                <button class="btn btn-outline-warning btn-sm editShopBtn">Edit</button>
+                <button class="btn btn-outline-danger btn-sm deleteShopBtn">Delete</button>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editShopModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editShopForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Shop</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editShopId" />
+          <div class="mb-3">
+            <label for="editShopName" class="form-label">Shop Name</label>
+            <input type="text" class="form-control" id="editShopName" required />
+          </div>
+          <div class="mb-3">
+            <label for="editAgentId" class="form-label">Agent</label>
+            <select class="form-select" id="editAgentId" required>
+              <% agents.forEach(agent => { %>
+                <option value="<%= agent.AgentId %>"><%= agent.AgentName %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="editPlace" class="form-label">Place</label>
+            <input type="text" class="form-control" id="editPlace" />
+          </div>
+          <div class="mb-3">
+            <label for="editAddress" class="form-label">Address</label>
+            <input type="text" class="form-control" id="editAddress" />
+          </div>
+          <div class="mb-3">
+            <label for="editPhoneNumber" class="form-label">Phone Number</label>
+            <input type="text" class="form-control" id="editPhoneNumber" />
+          </div>
+          <div class="mb-3">
+            <label for="editGST" class="form-label">GST</label>
+            <input type="text" class="form-control" id="editGST" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  $("#addShopForm").submit(function (e) {
+    e.preventDefault();
+    const data = {
+      ShopName: $("#shopName").val(),
+      AgentId: $("#agentId").val(),
+      Place: $("#place").val(),
+      Address: $("#address").val(),
+      PhoneNumber: $("#phoneNumber").val(),
+      GST: $("#gst").val(),
+    };
+
+    $.ajax({
+      url: "/api/shops",
+      method: "POST",
+      contentType: "application/json",
+      data: JSON.stringify(data),
+      success: function (shop) {
+        $("#shopsTableBody").append(`
+          <tr data-id="${shop.ShopId}">
+            <td>${shop.ShopId}</td>
+            <td>${data.ShopName}</td>
+            <td data-agent-id="${data.AgentId}">${$("#agentId option:selected").text()}</td>
+            <td>${data.Place || ""}</td>
+            <td>${data.Address || ""}</td>
+            <td>${data.PhoneNumber || ""}</td>
+            <td>${data.GST || ""}</td>
+            <td class="text-end">
+              <button class="btn btn-outline-warning btn-sm editShopBtn">Edit</button>
+              <button class="btn btn-outline-danger btn-sm deleteShopBtn">Delete</button>
+            </td>
+          </tr>
+        `);
+
+        $("#addShopForm")[0].reset();
+      }
+    });
+  });
+
+  $(document).on("click", ".editShopBtn", function () {
+    const row = $(this).closest("tr");
+    $("#editShopId").val(row.data("id"));
+    $("#editShopName").val(row.find("td:eq(1)").text());
+    $("#editAgentId").val(row.find("td:eq(2)").data("agent-id"));
+    $("#editPlace").val(row.find("td:eq(3)").text());
+    $("#editAddress").val(row.find("td:eq(4)").text());
+    $("#editPhoneNumber").val(row.find("td:eq(5)").text());
+    $("#editGST").val(row.find("td:eq(6)").text());
+    $("#editShopModal").modal("show");
+  });
+
+  $("#editShopForm").submit(function (e) {
+    e.preventDefault();
+    const id = $("#editShopId").val();
+
+    const data = {
+      ShopId: id,
+      ShopName: $("#editShopName").val(),
+      AgentId: $("#editAgentId").val(),
+      AgentName: $("#editAgentId option:selected").text(),
+      Place: $("#editPlace").val(),
+      Address: $("#editAddress").val(),
+      PhoneNumber: $("#editPhoneNumber").val(),
+      GST: $("#editGST").val(),
+    };
+
+    $.ajax({
+      url: `/api/shops/${id}`,
+      method: "PUT",
+      contentType: "application/json",
+      data: JSON.stringify(data),
+      success: function () {
+        const row = $(`#shopsTableBody tr[data-id='${id}']`);
+        row.html(`
+          <td>${data.ShopId}</td>
+          <td>${data.ShopName}</td>
+          <td data-agent-id="${data.AgentId}">${data.AgentName}</td>
+          <td>${data.Place || ""}</td>
+          <td>${data.Address || ""}</td>
+          <td>${data.PhoneNumber || ""}</td>
+          <td>${data.GST || ""}</td>
+          <td class="text-end">
+            <button class="btn btn-outline-warning btn-sm editShopBtn">Edit</button>
+            <button class="btn btn-outline-danger btn-sm deleteShopBtn">Delete</button>
+          </td>
+        `);
+
+        $("#editShopModal").modal("hide");
+      }
+    });
+  });
+
+  $(document).on("click", ".deleteShopBtn", function () {
+    if (confirm("Are you sure you want to delete this shop?")) {
+      const row = $(this).closest("tr");
+      const id = row.data("id");
+
+      $.ajax({
+        url: `/api/shops/${id}`,
+        method: "DELETE",
+        success: function () {
+          row.remove();
+        }
+      });
+    }
+  });
+
+  $("#shopSearch").on("keyup", function () {
+    const value = $(this).val().toLowerCase();
+    $("#shopsTableBody tr").filter(function () {
+      $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+    });
+  });
+</script>

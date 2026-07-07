@@ -1,0 +1,468 @@
+<!-- Flash message -->
+<div id="flashMsg" class="alert d-none mt-2"></div>
+
+<div class="card-panel table-card">
+  <div class="card-body p-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+      <div>
+        <h3 class="h4 mb-1">Order Details</h3>
+        <p class="text-muted mb-0">Add, edit, and track items for each order in one place.</p>
+      </div>
+      <a href="#" class="btn btn-outline-secondary btn-sm load-page" data-page="/orders" data-agent="<%= order.AgentId %>">← Back to Orders</a>
+    </div>
+
+    <div class="card mb-4 border-0 bg-light">
+      <div class="card-body">
+        <div class="row g-3 align-items-center">
+          <div class="col-md-8">
+            <h5 class="mb-1">Order #<%= order.OrderId %></h5>
+            <div class="text-muted"><strong><%= order.ShopName %></strong> · <%= order.Place %></div>
+            <div class="text-muted"><%= order.PhoneNumber || "" %> · <%= order.Address || "" %></div>
+          </div>
+          <div class="col-md-4 text-md-end">
+            <span class="badge badge-soft rounded-pill">Active order</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <form id="orderItemForm" class="row g-3 mb-4">
+      <input type="hidden" name="OrderId" value="<%= orderId %>">
+
+      <div class="col-md-3">
+        <label class="form-label">Item</label>
+        <input type="text" class="form-control" id="itemSearch" placeholder="Search item..." autocomplete="off" required />
+        <input type="hidden" name="ItemId" id="itemId">
+        <div id="itemError" class="text-danger small"></div>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Bags</label>
+        <input type="number" class="form-control" name="Bags" required>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Rate</label>
+        <input type="number" step="1" class="form-control" name="Rate" required>
+      </div>
+
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-success w-100">Add Item</button>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Kgs</label>
+        <input type="number" step="1" class="form-control" name="Kgs" list="kgsOptions" value="26" required>
+        <datalist id="kgsOptions">
+          <option value="26">
+          <option value="10">
+          <option value="50">
+        </datalist>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Condition</label>
+        <input type="text" class="form-control" name="Condition" value="100">
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-control" name="Notes">
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Status</label>
+        <select class="form-select" name="StatusId" required>
+          <option value="">Select</option>
+          <% statuses.forEach(function(status){ %>
+            <option value="<%= status.StatusId %>" <%= status.StatusId == 1 ? 'selected' : '' %>>
+              <%= status.Status %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+    </form>
+
+    <div class="row mb-3 align-items-end">
+      <div class="col-md-4">
+        <select id="bulkStatus" class="form-select">
+          <option value="">Update status to...</option>
+          <% statuses.forEach(function(status){ %>
+            <option value="<%= status.StatusId %>"><%= status.Status %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button id="applyBulk" class="btn btn-primary w-100">Apply</button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle" id="orderItemsTable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="selectAll"></th>
+            <th>Item</th>
+            <th>Bags</th>
+            <th>Kgs</th>
+            <th>Rate</th>
+            <th>Condition</th>
+            <th>Status</th>
+            <th>Notes</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orderItems.forEach(function(item){ %>
+            <tr data-id="<%= item.OrderItemId %>">
+              <td><input type="checkbox" class="rowCheck"></td>
+              <td><%= item.ItemName %></td>
+              <td><%= item.Bags %></td>
+              <td><%= item.Kgs %></td>
+              <td><%= item.Rate %></td>
+              <td><%= item.Condition %></td>
+              <td><%= item.StatusName %></td>
+              <td><%= item.Notes || "" %></td>
+              <td class="text-end">
+                <button class="btn btn-outline-warning btn-sm editBtn" title="Edit">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-outline-info btn-sm splitBtn" title="Split">
+                  <i class="bi bi-diagram-3"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-sm deleteBtn" title="Delete">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="splitModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Split Bags</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="splitItemId">
+        <div class="mb-3">
+          <label>Total Bags</label>
+          <input type="number" id="totalBags" class="form-control" disabled>
+        </div>
+        <div class="mb-3">
+          <label>Split Into (New Bags)</label>
+          <input type="number" id="splitBags" class="form-control" required>
+        </div>
+        <small class="text-muted">Existing row will be reduced and a new row will be created.</small>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="confirmSplit">Split</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+<style>
+.ui-autocomplete {
+  z-index: 2000 !important;
+  background-color: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  max-height: 250px;
+  overflow-y: auto;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  padding: 5px 0;
+  font-size: 0.95rem;
+}
+.ui-menu-item { padding: 6px 12px; cursor: pointer; color: #212529; border-bottom: 1px solid #f1f1f1; }
+.ui-menu-item:hover { background-color: #e9f7ef; color: #0d6efd; }
+.ui-state-active { background-color: #0d6efd !important; color: white !important; border: none !important; }
+#itemSearch:focus { border-color: #0d6efd; box-shadow: 0 0 0 0.2rem rgba(13,110,253,.25); }
+</style>
+
+<script>
+  $(document).ready(function () {
+    $("#itemSearch").focus();
+  });
+
+  $("#itemSearch").autocomplete({
+    minLength: 1,
+    source: function (request, response) {
+      $.get("/api/riceBrands", { q: request.term }, function (data) {
+        response(data);
+      });
+    },
+    select: function (event, ui) {
+      $("#itemSearch").val(ui.item.label);
+      $("#itemId").val(ui.item.id);
+      $("#itemError").text("");
+      return false;
+    }
+  });
+
+  $("#orderItemForm").on("submit", function (e) {
+    if (!$("#itemId").val()) {
+      e.preventDefault();
+      $("#itemError").text("⚠️ Please select a valid item from suggestions.");
+      $("#itemSearch").focus();
+    }
+  });
+
+  $("#selectAll").on("change", function () {
+    $(".rowCheck").prop("checked", this.checked);
+  });
+
+  $("#applyBulk").click(function () {
+    const statusId = $("#bulkStatus").val();
+    const selected = $(".rowCheck:checked").map(function () {
+      return $(this).closest("tr").data("id");
+    }).get();
+
+    if (!statusId) {
+      showFlash("⚠️ Please select a status", "danger");
+      return;
+    }
+    if (selected.length === 0) {
+      showFlash("⚠️ Please select at least one item", "danger");
+      return;
+    }
+
+    $.ajax({
+      url: "/orders/<%= orderId %>/items/updateStatus",
+      type: "POST",
+      data: { itemIds: selected, statusId },
+      success: function (resp) {
+        if (resp.success) {
+          showFlash("Status updated successfully!", "success");
+          selected.forEach(id => {
+            const row = $(`#orderItemsTable tr[data-id='${id}']`);
+            const newStatus = $("#bulkStatus option:selected").text();
+            row.find("td:eq(6)").text(newStatus);
+            row.find(".rowCheck").prop("checked", false);
+          });
+          $("#selectAll").prop("checked", false);
+        } else {
+          showFlash("Error updating status", "danger");
+        }
+      }
+    });
+  });
+
+  function showFlash(message, type) {
+    const msgDiv = $("#flashMsg");
+    msgDiv.removeClass("d-none alert-success alert-danger")
+      .addClass(`alert-${type}`)
+      .text(message)
+      .fadeIn();
+
+    setTimeout(() => msgDiv.fadeOut(), 3000);
+  }
+
+  $("#orderItemForm").submit(function (e) {
+    e.preventDefault();
+
+    $.post("/orders/<%= orderId %>/items/add", $(this).serialize(), function (data) {
+      if (data.error) {
+        showFlash(data.error, "danger");
+        return;
+      }
+
+      const newRow = `
+        <tr data-id="${data.OrderItemId}">
+          <td><input type="checkbox" class="rowCheck"></td>
+          <td>${data.ItemName}</td>
+          <td>${data.Bags}</td>
+          <td>${data.Kgs}</td>
+          <td>${data.Rate}</td>
+          <td>${data.Condition || ""}</td>
+          <td>${data.StatusName}</td>
+          <td>${data.Notes || ""}</td>
+          <td class="text-end">
+            <button class="btn btn-outline-warning btn-sm editBtn"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-outline-info btn-sm splitBtn"><i class="bi bi-diagram-3"></i></button>
+            <button class="btn btn-outline-danger btn-sm deleteBtn"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      `;
+
+      $("#orderItemsTable tbody").append(newRow);
+      $("#orderItemForm")[0].reset();
+      $("#itemSearch").val("").removeData("ui-autocomplete");
+      $("#itemId").val("");
+
+      $("#itemSearch").autocomplete({
+        minLength: 1,
+        source: function (request, response) {
+          $.get("/api/riceBrands", { q: request.term }, response);
+        },
+        select: function (event, ui) {
+          $("#itemSearch").val(ui.item.label);
+          $("#itemId").val(ui.item.id);
+          $("#itemError").text("");
+          return false;
+        }
+      });
+
+      $("#itemSearch").focus();
+      showFlash("Item added successfully!", "success");
+    });
+  });
+
+  $(document).on("click", ".deleteBtn", function () {
+    const row = $(this).closest("tr");
+    const id = row.data("id");
+
+    $.post("/orders/<%= orderId %>/items/delete/" + id, function (resp) {
+      if (resp.success) {
+        row.remove();
+        showFlash("Item deleted successfully!", "success");
+      } else {
+        showFlash("Error deleting item", "danger");
+      }
+    });
+  });
+
+  $(document).on("click", ".editBtn", function () {
+    const row = $(this).closest("tr");
+
+    if (row.hasClass("editing")) return;
+    row.addClass("editing");
+
+    row.data("original", {
+      Bags: row.find("td:eq(2)").text(),
+      Kgs: row.find("td:eq(3)").text(),
+      Rate: row.find("td:eq(4)").text(),
+      Condition: row.find("td:eq(5)").text(),
+      Notes: row.find("td:eq(7)").text()
+    });
+
+    row.find("td:eq(2)").html(`<input type="number" class="form-control form-control-sm" value="${row.data("original").Bags}">`);
+    row.find("td:eq(3)").html(`<input type="number" class="form-control form-control-sm" value="${row.data("original").Kgs}">`);
+    row.find("td:eq(4)").html(`<input type="number" class="form-control form-control-sm" value="${row.data("original").Rate}">`);
+    row.find("td:eq(5)").html(`<input type="text" class="form-control form-control-sm" value="${row.data("original").Condition}">`);
+    row.find("td:eq(7)").html(`<input type="text" class="form-control form-control-sm" value="${row.data("original").Notes}">`);
+
+    row.find("td:eq(8)").html(`
+      <button class="btn btn-success btn-sm saveBtn"><i class="bi bi-check"></i></button>
+      <button class="btn btn-secondary btn-sm cancelBtn"><i class="bi bi-x"></i></button>
+    `);
+  });
+
+  $(document).on("click", ".cancelBtn", function () {
+    const row = $(this).closest("tr");
+    const original = row.data("original");
+
+    row.find("td:eq(2)").text(original.Bags);
+    row.find("td:eq(3)").text(original.Kgs);
+    row.find("td:eq(4)").text(original.Rate);
+    row.find("td:eq(5)").text(original.Condition);
+    row.find("td:eq(7)").text(original.Notes);
+
+    row.find("td:eq(8)").html(`
+      <button class="btn btn-outline-warning btn-sm editBtn"><i class="bi bi-pencil"></i></button>
+      <button class="btn btn-outline-danger btn-sm deleteBtn"><i class="bi bi-trash"></i></button>
+    `);
+
+    row.removeClass("editing");
+  });
+
+  $(document).on("click", ".saveBtn", function () {
+    const row = $(this).closest("tr");
+    const id = row.data("id");
+
+    const payload = {
+      Bags: row.find("td:eq(2) input").val(),
+      Kgs: row.find("td:eq(3) input").val(),
+      Rate: row.find("td:eq(4) input").val(),
+      Condition: row.find("td:eq(5) input").val(),
+      Notes: row.find("td:eq(7) input").val()
+    };
+
+    $.ajax({
+      url: `/orders/<%= orderId %>/items/update/${id}`,
+      type: "POST",
+      data: payload,
+      success: function (resp) {
+        if (!resp.success) {
+          showFlash("Error updating item", "danger");
+          return;
+        }
+
+        row.find("td:eq(2)").text(payload.Bags);
+        row.find("td:eq(3)").text(payload.Kgs);
+        row.find("td:eq(4)").text(payload.Rate);
+        row.find("td:eq(5)").text(payload.Condition);
+        row.find("td:eq(7)").text(payload.Notes);
+
+        row.find("td:eq(8)").html(`
+          <button class="btn btn-outline-warning btn-sm editBtn"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-outline-danger btn-sm deleteBtn"><i class="bi bi-trash"></i></button>
+        `);
+
+        row.removeClass("editing");
+        showFlash("Item updated successfully!", "success");
+      }
+    });
+  });
+
+  $("#confirmSplit").click(function () {
+    const id = $("#splitItemId").val();
+    const total = parseInt($("#totalBags").val(), 10);
+    const split = parseInt($("#splitBags").val(), 10);
+
+    if (!split || split <= 0 || split >= total) {
+      showFlash("⚠️ Invalid split quantity", "danger");
+      return;
+    }
+
+    $.ajax({
+      url: `/orders/<%= orderId %>/items/split/${id}`,
+      type: "POST",
+      data: { splitBags: split },
+      success: function (resp) {
+        if (!resp.success) {
+          showFlash(resp.error || "Split failed", "danger");
+          return;
+        }
+
+        const row = $(`#orderItemsTable tr[data-id='${id}']`);
+        row.find("td:eq(2)").text(resp.updated.Bags);
+
+        const newRow = `
+          <tr data-id="${resp.newItem.OrderItemId}">
+            <td><input type="checkbox" class="rowCheck"></td>
+            <td>${resp.newItem.ItemName}</td>
+            <td>${resp.newItem.Bags}</td>
+            <td>${resp.newItem.Kgs}</td>
+            <td>${resp.newItem.Rate}</td>
+            <td>${resp.newItem.Condition || ""}</td>
+            <td>${resp.newItem.StatusName}</td>
+            <td>${resp.newItem.Notes || ""}</td>
+            <td class="text-end">
+              <button class="btn btn-outline-warning btn-sm editBtn"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-outline-info btn-sm splitBtn"><i class="bi bi-diagram-3"></i></button>
+              <button class="btn btn-outline-danger btn-sm deleteBtn"><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>
+        `;
+
+        $("#orderItemsTable tbody").append(newRow);
+        showFlash("Item split successfully!", "success");
+      }
+    });
+  });
+</script>

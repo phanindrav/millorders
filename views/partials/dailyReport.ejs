@@ -1,0 +1,141 @@
+<div class="row mb-3">
+  <div class="col-md-3">
+    <label for="reportDate" class="form-label">Select Date</label>
+    <input type="date" id="reportDate" class="form-control" value="<%= selectedDate %>">
+  </div>
+  <div class="col-md-3 align-self-end">
+    <button id="deleteOrdersBtn" class="btn btn-danger">Delete Orders for this Date</button>
+  </div>
+</div>
+
+ <!-- Print Button -->
+  <div class="mt-3 d-flex justify-content-end d-print-none">
+    <button id="printBtn" class="btn btn-primary btn-sm">🖨 Print</button>
+  </div>
+
+<div id="content-area">
+  <table class="table table-bordered table-hover align-middle" id="reportTable">
+    <thead class="table-light text-center">
+      <tr>
+        <th>Agent</th>
+        <th>Order</th>
+        <th>Item Brand</th>
+        <th class="text-end">Bags</th>
+        <th class="text-end">Kgs</th>
+        <th class="text-end">Quintals</th>
+        <th class="text-end">Rate</th>
+        <th class="text-end">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% 
+        let currentAgent = null;
+        let currentOrder = null;
+      %>
+
+      <% orders.forEach((o) => { %>
+        <% 
+          const newAgent = o.AgentName !== currentAgent;
+          const newOrder = o.OrderId !== currentOrder;
+          if (newAgent) currentAgent = o.AgentName;
+          if (newOrder) currentOrder = o.OrderId;
+
+          const formattedRate = new Intl.NumberFormat("en-IN", {
+            style: "currency",
+            currency: "INR",
+            minimumFractionDigits: 2
+          }).format(o.Rate);
+
+          const formattedAmount = new Intl.NumberFormat("en-IN", {
+            style: "currency",
+            currency: "INR",
+            minimumFractionDigits: 2
+          }).format(o.Amount);
+        %>
+
+        <tr>
+          <!-- Agent Column -->
+          <% if (newAgent) { %>
+            <td rowspan="<%= orders.filter(x => x.AgentName === o.AgentName).length %>">
+              <strong><%= o.AgentName %></strong>
+            </td>
+          <% } %>
+
+          <!-- Order Column -->
+          <% if (newOrder) { %>
+            <td rowspan="<%= orders.filter(x => x.OrderId === o.OrderId).length %>">
+              <strong>Order #<%= o.OrderId %></strong><br/>
+              <%= o.ShopName %><br/>
+              <small><%= o.Place %></small>
+            </td>
+          <% } %>
+
+          <!-- Item Details -->
+          <td><%= o.ItemName %> <%= o.Brand %></td>
+          <td class="text-end"><%= o.Bags %></td>
+          <td class="text-end"><%= o.Kgs %></td>
+          <td class="text-end"><%= o.Quintals.toFixed(2) %></td>
+          <td class="text-end"><%= formattedRate %></td>
+          <td class="text-end"><%= formattedAmount %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  // Reload report via AJAX on date change
+  $("#reportDate").on("change", function () {
+    const date = $(this).val();
+    if (date) {
+      $("#content-area").load(`/reports/daily-report?date=${date}`);
+    } else {
+      $("#content-area").html("");
+    }
+  });
+
+  // Delete all orders for selected date
+  $("#deleteOrdersBtn").on("click", function () {
+    const date = $("#reportDate").val();
+    if (!date) {
+      alert("Please select a date first.");
+      return;
+    }
+
+    if (confirm(`Are you sure you want to delete all orders for ${date}?`)) {
+      $.ajax({
+        url: "/api/orders/delete-by-date",
+        method: "POST",
+        data: { date },
+        success: function (res) {
+          alert(res.message);
+          $("#content-area").load(`/reports/daily-report?date=${date}`);
+        },
+        error: function (err) {
+          alert("Failed to delete orders.");
+          console.error(err);
+        }
+      });
+    }
+  });
+
+  // Print only the report table
+  $("#printBtn").on("click", function () {
+    const printContents = document.getElementById("content-area").innerHTML;
+    const win = window.open("", "", "height=800,width=1100");
+    win.document.write("<html><head><title>Rice Report</title>");
+    win.document.write("<style>");
+    win.document.write(`
+      body { font-family: "Times New Roman", serif; font-size: 11pt; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ccc; padding: 4px; }
+      th { background: #f8f9fa; }
+      .text-end { text-align: right; }
+    `);
+    win.document.write("</style></head><body>");
+    win.document.write(printContents);
+    win.document.write("</body></html>");
+    win.document.close();
+    win.print();
+  });
+</script>

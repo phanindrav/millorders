@@ -1,0 +1,162 @@
+<%
+  function formatDate(dateStr) {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const suffix =
+      day % 10 === 1 && day !== 11 ? "st" :
+      day % 10 === 2 && day !== 12 ? "nd" :
+      day % 10 === 3 && day !== 13 ? "rd" : "th";
+    const options = { month: "short" };
+    const month = date.toLocaleString("en-US", options);
+    return `${day}${suffix} ${month}, ${date.getFullYear()}`;
+  }
+%>
+
+<div class="container">
+  <h3>All Agents</h3>
+  <div class="d-flex justify-content-between mb-2">
+    <button id="printBtn" class="btn btn-success btn-sm">Print</button>
+  </div>
+
+  <div id="reportTableWrapper">
+    <% reports.forEach((rep, idx) => { 
+      let rowCounts = {};
+      let totals = {};
+      let grandTotalQuintals = 0;
+      let grandTotalAmount = 0;
+
+      rep.reportData.forEach(o => {
+        rowCounts[o.OrderId] = (rowCounts[o.OrderId] || 0) + 1;
+        if (!totals[o.OrderId]) totals[o.OrderId] = { quintals: 0, amount: 0 };
+        totals[o.OrderId].quintals += Number(o.Quintals || 0);
+        totals[o.OrderId].amount += Number(o.Amount || 0);
+        grandTotalQuintals += Number(o.Quintals || 0);
+        grandTotalAmount += Number(o.Amount || 0);
+      });
+    %>
+
+    <% if (rep.reportData.length > 0) { %>
+      <div class="agent-report mb-4">
+        <table class="table table-bordered table-sm account-table">
+          <thead class="table-light">
+            <tr><th colspan="8"><%= rep.agent.AgentName %> - <%= formatDate(rep.today) %></th></tr>
+            <tr>
+              <th class="order-col">Order</th>
+              <th>Item - Brand</th>
+              <th style="text-align: right;">Bags</th>
+              <th style="text-align: right;">Kgs</th>
+              <th style="text-align: right;">Qtls</th>
+              <th style="text-align: right;">Rate : Condition</th>
+              <!-- <th>Amount</th> -->
+              <!-- <th>Notes</th> -->
+            </tr>
+          </thead>
+          <tbody>
+            <% let lastOrderId = null; 
+              rep.reportData.forEach(o => { %>
+              <tr>
+                <% if (lastOrderId !== o.OrderId) { %>
+                  <td rowspan="<%= rowCounts[o.OrderId] %>" class="order-cell">
+                    <b><%= o.ShopName %><% if (o.Place) { %> - <%= o.Place %><% } %></b> 
+                    <% if (o.PhoneNumber) { %> - <%= o.PhoneNumber %><% } %> <br/>
+                    Order: <b><%= o.OrderId %></b> - <%= formatDate(o.Date) %>,
+                    Qtls: <%= totals[o.OrderId].quintals.toFixed(2) %>, 
+                    ₹: <%= totals[o.OrderId].amount.toLocaleString("en-IN") %>
+                  </td>
+                <% } %>
+                <td><%= o.ItemName %> - <%= o.Brand %> <i><%= o.Notes %></i></td>
+                <td class="text-end"><%= o.Bags %></td>
+                <td class="text-end"><%= o.Kgs %></td>
+                <td class="text-end"><%= o.Quintals %></td>
+                <td class="text-end"><%= o.Rate %> : <%= o.Condition %></td>
+                <!-- <td class="text-end"><%= Number(o.Amount).toLocaleString("en-IN") %></td> -->
+                <!-- <% if (lastOrderId !== o.OrderId) { %>
+                  <td rowspan="<%= rowCounts[o.OrderId] %>"><%= o.GST %></td>
+                <% } %> -->
+              </tr>
+              <% lastOrderId = o.OrderId; %>
+            <% }) %>
+          </tbody>
+          <tfoot>
+              <tr style="font-weight:bold; background:#f9f9f9;">
+                <td class="text-end" colspan="4">Grand Total: </td>
+                <td class="text-end"><%= grandTotalQuintals.toFixed(2) %></td>
+              </tr>
+            </tfoot>
+        </table>
+      </div>
+      <br/>
+    <% } %>
+    <% }) %>
+  </div>
+</div>
+
+<style>
+/* 🌟 General Table Styling */
+.account-table th, .account-table td {
+  font-size: 11px;       /* Smaller for all except order column */
+  vertical-align: middle;
+}
+
+.account-table .order-col,
+.account-table .order-cell {
+  font-size: 13px;       /* Keep "Order" column readable */
+  font-weight: 600;
+  background-color: #f9f9f9;
+}
+
+.agent-report {
+  margin-bottom: 30px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 5px;
+}
+
+/* 🌟 Print-Specific Styling */
+@media print {
+  .agent-report {
+    page-break-after: always;
+  }
+  .account-table th, .account-table td {
+    font-size: 10pt;
+  }
+  .account-table .order-col,
+  .account-table .order-cell {
+    font-size: 11.5pt;
+    font-weight: bold;
+  }
+}
+</style>
+
+<script>
+$("#printBtn").on("click", function () {
+  const printContents = document.getElementById("reportTableWrapper").innerHTML;
+  const win = window.open("", "", "height=800,width=1100");
+
+  const now = new Date();
+  const options = { day: "numeric", month: "short", year: "2-digit" };
+  const formattedDate = now.toLocaleDateString("en-GB", options).replace(",", "");
+
+  win.document.write("<html><head><title>Agent Report</title>");
+  win.document.write("<style>");
+  win.document.write(`
+    body { font-family: "Times New Roman", serif; font-size: 11pt; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    table, th, td { border: 1px solid black !important; }
+    th, td { padding: 4px; }
+    thead { font-weight: bold; background: #f2f2f2; }
+    .order-cell, .order-col { font-size: 12pt; font-weight: bold; background: #fafafa; }
+    td:not(.order-cell), th:not(.order-col) { font-size: 10pt; }
+
+    @page { margin: 20mm; }
+  `);
+  win.document.write("</style></head><body>");
+  win.document.write(printContents);
+  win.document.write("</body></html>");
+  win.document.close();
+
+  setTimeout(() => win.print(), 500);
+  setTimeout(() => win.close(), 1000);
+});
+</script>

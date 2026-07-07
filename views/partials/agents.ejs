@@ -1,0 +1,82 @@
+<div class="card-panel table-card">
+  <div class="card-body p-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+      <div>
+        <h3 class="h4 mb-1">Manage Agents</h3>
+        <p class="text-muted mb-0">Add or maintain agent records with a cleaner workflow.</p>
+      </div>
+      <span class="badge badge-soft rounded-pill">Live data</span>
+    </div>
+
+    <form id="agentForm" class="row g-3 mb-4 align-items-end">
+      <div class="col-md-8">
+        <label class="form-label">Agent Name</label>
+        <input class="form-control" name="AgentName" placeholder="Enter agent name" required>
+      </div>
+      <div class="col-md-4">
+        <button class="btn btn-primary w-100" type="submit">Add Agent</button>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table align-middle" id="agentTable">
+        <thead>
+          <tr><th>#</th><th>Name</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function loadAgents() {
+    const res = await fetch('/api/agents');
+    const data = await res.json();
+    const rows = data.map(a => `
+      <tr>
+        <td>${a.AgentId}</td>
+        <td>${a.AgentName}</td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-warning me-2" data-edit="${a.AgentId}" data-name="${a.AgentName}">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" data-del="${a.AgentId}">Delete</button>
+        </td>
+      </tr>`).join('');
+    document.querySelector('#agentTable tbody').innerHTML = rows;
+  }
+
+  document.getElementById('agentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    await fetch('/api/agents', { method:'POST', body: new URLSearchParams(fd) });
+    e.target.reset();
+    loadAgents();
+  });
+
+  document.querySelector('#agentTable').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+
+    if (btn.dataset.edit) {
+      const id = btn.dataset.edit;
+      const current = btn.dataset.name || '';
+      const name = prompt('Edit agent name:', current);
+      if (name) {
+        await fetch('/api/agents/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ AgentName: name })
+        });
+        loadAgents();
+      }
+    } else if (btn.dataset.del) {
+      const id = btn.dataset.del;
+      if (confirm('Delete this agent?')) {
+        await fetch('/api/agents/' + id, { method:'DELETE' });
+        loadAgents();
+      }
+    }
+  });
+
+  loadAgents();
+</script>

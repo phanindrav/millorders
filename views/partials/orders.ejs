@@ -1,0 +1,385 @@
+<div class="card-panel table-card">
+  <div class="card-body p-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+      <div>
+        <h3 class="h4 mb-1">Manage Orders</h3>
+        <p class="text-muted mb-0">Create and track orders quickly for each agent and shop.</p>
+      </div>
+      <span class="badge badge-soft rounded-pill">Daily workflow</span>
+    </div>
+
+    <form id="addOrderForm" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <label for="orderDate" class="form-label">Date</label>
+        <input type="date" class="form-control" id="orderDate" value="<%= today %>" required />
+      </div>
+
+      <div class="col-md-3">
+        <label for="agentId" class="form-label">Agent</label>
+        <select id="agentId" class="form-select" required>
+          <option value="">Select Agent</option>
+          <% agents.forEach(agent => { %>
+            <option value="<%= agent.AgentId %>"><%= agent.AgentName %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label for="shopSearch" class="form-label">Shop</label>
+        <input type="text" id="shopSearch" class="form-control" placeholder="Search shop" required />
+        <input type="hidden" id="shopId" />
+      </div>
+
+      <div class="col-md-3 d-flex align-items-end">
+        <button id="addOrderBtn" type="submit" class="btn btn-success w-100" title="Add Order (Ctrl + Enter)">
+          <i class="bi bi-plus-circle"></i> Add Order
+        </button>
+      </div>
+
+      <div class="col-12">
+        <div id="orderSuccessMsg" class="alert alert-success d-none" role="alert">
+          Order added successfully!
+        </div>
+      </div>
+    </form>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <input type="text" id="orderSearch" class="form-control" placeholder="Search orders by shop or item..." />
+      </div>
+    </div>
+
+    <h4 id="ordersAgentHeader" class="mb-3 text-primary"></h4>
+
+    <div class="table-responsive">
+      <table class="table align-middle" id="ordersTable">
+        <thead>
+          <tr>
+            <th>Order Id <br/> Date</th>
+            <th>Shop</th>
+            <th>Quintals</th>
+            <th>Items</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- jQuery + jQuery UI -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css" />
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+
+<script>
+
+  // Focus cursor on Agent dropdown when page loads
+  $(document).ready(function () {
+    $("#agentId").focus();
+  });
+
+
+   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey && e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("addOrderBtn").click();
+    }
+  });
+
+    // handle back navigation from item page
+  // handle back navigation from item page
+$(document).on("click", ".load-page", function (e) {
+  e.preventDefault();
+  const url = $(this).data("page");
+  const agentId = $(this).data("agent"); // get agent id if available
+
+  // Load the orders page first
+  $("#content-area").load(url, function () {
+    // once the orders page is loaded, select the agent and load its orders
+    if (agentId) {
+      // Wait for the dropdown to exist
+      const interval = setInterval(() => {
+        const $agentDropdown = $("#agentId");
+        if ($agentDropdown.length) {
+          clearInterval(interval);
+          // set dropdown value and trigger change/load
+          $agentDropdown.val(agentId);
+          loadOrders(agentId);
+
+          $.get(`/api/agents/${agentId}/shops`, function (shops) {
+            $("#shopSearch").autocomplete({
+              source: shops.map(s => ({
+              label: s.ShopName + ', ' + s.Place + ', ' + s.Address, // what user sees in dropdown
+              value: s.ShopName + ', ' + s.Place + ', ' + s.Address, // what goes into #shopSearch input
+              id: s.ShopId       // keep ShopId separately
+            })),
+              select: function (event, ui) {
+                $("#shopId").val(ui.item.id);
+                $.get(`/api/shops/${ui.item.id}`, function (shop) {
+                });
+              }
+            });
+          });
+        }
+      }, 100);
+    }
+  });
+});
+
+  // Load orders into grid
+function loadOrders(agentId) {
+
+  if (!agentId) {
+    $("#ordersTable tbody").empty();
+    $("#ordersAgentHeader").text("");
+    return;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const suffix =
+      day % 10 === 1 && day !== 11 ? "st" :
+      day % 10 === 2 && day !== 12 ? "nd" :
+      day % 10 === 3 && day !== 13 ? "rd" : "th";
+    const options = { month: "short" };
+    const month = date.toLocaleString("en-US", options);
+    return `${day}${suffix} ${month}, ${date.getFullYear()}`;
+  }
+
+
+  // Get the agent name from dropdown
+  const agentName = $("#agentId option:selected").text();
+  $("#ordersAgentHeader").text("Orders for Agent: " + agentName);
+
+  $.get("/api/orders/" + agentId, function (orders) {
+    const tbody = $("#ordersTable tbody");
+    tbody.empty();
+    orders.forEach(o => {
+      tbody.append(`
+        <tr>
+          <td>${o.OrderId} <br/> ${formatDate(o.Date)}</td>
+          <td>${o.ShopName} <br/>${o.Place || ""} <br/> ${o.PhoneNumber || ""} ${o.GST || ""}</td>
+          <td class="text-end">${o.TotalQuintals}</td> <!-- right-aligned -->
+          <td>${o.Items}</td>
+          <td>
+            <button class="btn btn-success btn-sm addItems" data-id="${o.OrderId}" title="Add Items">
+              <i class="bi bi-plus-circle"></i>
+            </button>
+            <button class="btn btn-warning btn-sm updateDelivery" data-id="${o.OrderId}" title="Update Order">
+              <i class="bi bi-pencil-square"></i>
+            </button>
+            <button class="btn btn-danger btn-sm deleteOrder" data-id="${o.OrderId}" title="Delete Order">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      `);
+    });
+  });
+}
+
+
+  // Autocomplete shops when agent selected
+  $("#agentId").change(function () {
+    const agentId = $(this).val();
+    loadOrders(agentId);
+     $("#shopSearch").val("");
+     $("#shopId").val("");
+     //$("#shopName").val("");
+    if (!agentId) return;
+
+      $.get(`/api/agents/${agentId}/shops`, function (shops) {
+      $("#shopSearch").autocomplete({
+        source: shops.map(s => ({
+        label: s.ShopName + ', ' + s.Place , // what user sees in dropdown
+        value: s.ShopName + ', ' + s.Place , // what goes into #shopSearch input
+        id: s.ShopId       // keep ShopId separately
+      })),
+
+        select: function (event, ui) {
+          $("#shopId").val(ui.item.id);
+
+          // Automatically add the order once a shop is selected
+          const selectedAgentId = $("#agentId").val();
+          const data = {
+            Date: $("#orderDate").val(),
+            AgentId: selectedAgentId,
+            ShopId: ui.item.id
+          };
+
+          // Prevent multiple rapid submits
+          if (!selectedAgentId || !data.ShopId) return;
+
+          $.ajax({
+            url: "/api/orders",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(data),
+            success: function (res) {
+
+              const orderId = res.orderId;
+
+              $("#addOrderForm")[0].reset();
+              $("#agentId").val(selectedAgentId); // Keep agent selected
+              $("#shopSearch").val(""); // clear search
+              $("#shopId").val("");
+              loadOrders(selectedAgentId);
+              showFlash("Order added successfully!", "success");
+              loadPage(`/orders/${orderId}/items`);
+            },
+            error: function (xhr) {
+              if (xhr.status === 409) {
+                showFlash("Shop already added for this date", "danger");
+              } else {
+                showFlash("An error occurred while adding the order", "danger");
+              }
+            }
+          });
+        }
+
+      });
+    });
+  });
+
+  // Add Order
+  $("#addOrderForm").submit(function (e) {
+    e.preventDefault();
+    const selectedAgentId = $("#agentId").val(); // Store before reset
+    const data = {
+      Date: $("#orderDate").val(),
+      AgentId: $("#agentId").val(),
+      ShopId: $("#shopId").val()
+    };
+    
+    $.ajax({
+      url: "/api/orders",
+      method: "POST",
+      contentType: "application/json",
+      data: JSON.stringify(data),
+      success: function () {
+        $("#addOrderForm")[0].reset();
+        $("#agentId").val(selectedAgentId);
+        $("#address, #phoneNumber, #gst").val("");
+        loadOrders(selectedAgentId);
+
+        showFlash("Order added successfully!", "success");
+      },
+      error: function (xhr) {
+        if (xhr.status === 409) {
+          // Duplicate order detected
+          showFlash("Shop already added for this date", "danger");
+        } else {
+          showFlash("An error occurred while adding the order", "danger");
+        }
+      }
+    });
+
+  });
+
+$(document).off("click", ".updateDelivery").on("click", ".updateDelivery", function () {
+  const orderId = $(this).data("id");
+  const row = $(this).closest("tr");
+  
+  // You can get the new DeliveryDate from an input in the row or a prompt
+  const newDate = $("#orderDate").val();
+  if (!newDate) return; // cancel if empty
+
+  $.ajax({
+    url: "/api/orders/" + orderId + "/delivery",
+    method: "PUT",
+    contentType: "application/json",
+    data: JSON.stringify({ DeliveryDate: newDate }),
+    success: function () {
+      // Optionally update the date in the table row
+      row.find(".deliveryDate").text(newDate);
+      row.remove(); // remove from table without reload
+      showFlash("DeliveryDate updated successfully!", "success");
+    },
+    error: function () {
+      showFlash("Failed to update DeliveryDate.", "danger");
+    }
+  });
+});
+
+  // Ensure only one click listener exists
+$(document).off("click", ".deleteOrder").on("click", ".deleteOrder", function () {
+  const orderId = $(this).data("id");
+  const row = $(this).closest("tr");
+
+  if (confirm("Are you sure you want to delete this order?")) {
+    $.ajax({
+      url: "/api/orders/" + orderId,
+      method: "DELETE",
+      success: function () {
+        row.remove(); // remove from table without reload
+        showFlash("Order deleted successfully!", "success");
+      },
+      error: function () {
+        showFlash("Failed to delete order.", "danger");
+      }
+    });
+  }
+});
+
+
+  function showFlash(message, type) {
+    const msgDiv = $("#orderSuccessMsg");
+    msgDiv.removeClass("d-none alert-success alert-danger").addClass(`alert-${type}`).text(message).fadeIn();
+
+    setTimeout(() => {
+      msgDiv.fadeOut();
+    }, 3000);
+  }
+
+  $("#orderSearch").on("keyup", function () {
+    const value = $(this).val().toLowerCase();
+    $("#ordersTable tbody tr").filter(function () {
+      $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+    });
+  });
+
+  // attach click handler after table is populated
+  $(document).on("click", ".addItems", function () {
+    const orderId = $(this).data("id");
+    loadPage(`/orders/${orderId}/items`);
+  });
+
+  // attach click handler after table is populated
+  $(document).on("click", ".updateItems", function () {
+    const orderId = $(this).data("id");
+    loadPage(`/orders/${orderId}/items/list`);
+  });
+
+function loadPage(url, agentId = null) {
+  if (agentId) {
+    sessionStorage.setItem("selectedAgentId", agentId); // remember selected agent
+  }
+
+  $("#content-area").html("<p>Loading...</p>");
+  $("#content-area").load(url, function (response, status, xhr) {
+    if (status === "error") {
+      $("#content-area").html("<p class='text-danger'>Failed to load content.</p>");
+    } else {
+      // Focus the Agent dropdown after content is loaded
+      $("#agentId").focus();
+
+      // After page is loaded, reselect agent & reload orders
+      const storedAgentId = sessionStorage.getItem("selectedAgentId");
+      if (storedAgentId && $("#agentId").length > 0) {
+        $("#agentId").val(storedAgentId);
+        loadOrders(storedAgentId);
+      }
+    }
+  });
+}
+
+sessionStorage.removeItem("selectedAgentId");
+
+
+</script>

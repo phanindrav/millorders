@@ -1,0 +1,235 @@
+<%
+  let rowCounts = {};
+  let totals = {};
+  let grandTotalQuintals = 0;
+  let grandTotalAmount = 0;
+
+  reportData.forEach(o => {
+    rowCounts[o.OrderId] = (rowCounts[o.OrderId] || 0) + 1;
+
+    if (!totals[o.OrderId]) {
+      totals[o.OrderId] = { quintals: 0, amount: 0 };
+    }
+    totals[o.OrderId].quintals += Number(o.Quintals || 0);
+    totals[o.OrderId].amount += Number(o.Amount || 0);
+
+    grandTotalQuintals += Number(o.Quintals || 0);
+    grandTotalAmount += Number(o.Amount || 0);
+  });
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "";
+
+    const date = new Date(dateStr);
+    const day = date.getDate();
+    const suffix =
+      day % 10 === 1 && day !== 11 ? "st" :
+      day % 10 === 2 && day !== 12 ? "nd" :
+      day % 10 === 3 && day !== 13 ? "rd" : "th";
+    const month = date.toLocaleString("en-US", { month: "short" });
+
+    return `${day}${suffix} ${month}, ${date.getFullYear()}`;
+  }
+%>
+
+<div class="card-panel table-card">
+  <div class="card-body p-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+      <div>
+        <h3 class="h4 mb-1">Agent Report</h3>
+        <p class="text-muted mb-0">Review detailed orders, totals, and rice summaries in a clearer layout.</p>
+      </div>
+      <button id="printBtn" class="btn btn-outline-success">Print</button>
+    </div>
+
+    <form id="agentForm" class="row g-3 mb-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Select Agent</label>
+        <select id="agentSelect" name="agentId" class="form-select">
+          <option value="all" <%= selectedAgent === "all" ? "selected" : "" %>>All Agents</option>
+          <% agents.forEach(function(agent){ %>
+            <option value="<%= agent.AgentId %>" <%= selectedAgent == agent.AgentId ? "selected" : "" %>>
+              <%= agent.AgentName %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+    </form>
+
+    <% if (reportData && reportData.length > 0) { %>
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <div class="stat-card">
+            <div class="label">Selected agent</div>
+            <div class="value"><%= selectedAgentName %></div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card">
+            <div class="label">Total quintals</div>
+            <div class="value"><%= grandTotalQuintals.toFixed(2) %></div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="stat-card">
+            <div class="label">Total amount</div>
+            <div class="value">₹ <%= grandTotalAmount.toLocaleString("en-IN") %></div>
+          </div>
+        </div>
+      </div>
+
+      <% if (summaryRice && summaryRice.length > 0) { %>
+        <div class="alert alert-light border mb-4">
+          <strong>Rice summary:</strong>
+          <% summaryRice.forEach((r, idx) => { %>
+            <span class="me-2"><%= r.RiceType %> <small>(<%= Number(r.Quintals).toFixed(2) %>)</small></span>
+          <% }) %>
+        </div>
+      <% } %>
+
+      <div id="reportTableWrapper" class="mb-4">
+        <div class="table-responsive">
+          <table class="table align-middle table-sm">
+            <thead>
+              <tr><th colspan="8"><%= selectedAgentName %></th></tr>
+              <tr>
+                <th>Order</th>
+                <th>Item - Brand</th>
+                <th class="text-end">Bags</th>
+                <th class="text-end">Kgs</th>
+                <th class="text-end">Quintals</th>
+                <th class="text-end">Rate : Condition</th>
+                <th class="text-end">Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%
+                let lastOrderId = null;
+                reportData.forEach(function(o){ %>
+                  <tr>
+                    <% if (lastOrderId !== o.OrderId) { %>
+                      <td rowspan="<%= rowCounts[o.OrderId] %>">
+                        <strong><%= o.ShopName %><% if (o.Place) { %> - <%= o.Place %><% } %></strong><br/>
+                        Order Id: <strong><%= o.OrderId %></strong> - <%= formatDate(o.Date) %><br/>
+                        <% if (o.PhoneNumber) { %><%= o.PhoneNumber %><br/><% } %>
+                        Quintals: <%= totals[o.OrderId].quintals.toFixed(2) %><br/>
+                        Amount: ₹ <%= totals[o.OrderId].amount.toLocaleString("en-IN") %>
+                      </td>
+                    <% } %>
+
+                    <td><%= o.ItemName %>-<%= o.Brand %> <% if (o.Notes) { %><br/><i>(<%= o.Notes %>)</i><% } %></td>
+                    <td class="text-end"><%= o.Bags %></td>
+                    <td class="text-end"><%= o.Kgs %></td>
+                    <td class="text-end"><%= o.Quintals %></td>
+                    <td class="text-end"><%= o.Rate %> : <%= o.Condition %></td>
+                    <td class="text-end">₹ <%= Number(o.Amount).toLocaleString("en-IN") %></td>
+                    <td><%= o.Status %></td>
+                  </tr>
+                  <% lastOrderId = o.OrderId; %>
+              <% }) %>
+            </tbody>
+            <tfoot>
+              <tr style="font-weight:bold; background:#f9f9f9;">
+                <td colspan="4" class="text-end">Grand Totals</td>
+                <td class="text-end"><%= grandTotalQuintals.toFixed(2) %></td>
+                <td></td>
+                <td class="text-end">₹ <%= grandTotalAmount.toLocaleString("en-IN") %></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <% if (summaryRiceBrand && summaryRiceBrand.length > 0) {
+          let totalKgs = 0, totalBags = 0, totalQuintals = 0;
+          summaryRiceBrand.forEach(r => {
+            totalKgs += Number(r.Kgs || 0);
+            totalBags += Number(r.Bags || 0);
+            totalQuintals += Number(r.Quintals || 0);
+          });
+        %>
+          <div class="mt-4">
+            <h5 class="mb-3">Rice Type / Brand / Item Summary</h5>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Rice Type - Brand</th>
+                    <th class="text-end">Kgs</th>
+                    <th class="text-end">Bags</th>
+                    <th class="text-end">Quintals</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% summaryRiceBrand.forEach(r => { %>
+                    <tr>
+                      <td><%= r.RiceType %> - <%= r.BrandName %></td>
+                      <td class="text-end"><%= r.Kgs %></td>
+                      <td class="text-end"><%= r.Bags %></td>
+                      <td class="text-end"><%= Number(r.Quintals).toFixed(2) %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+                <tfoot>
+                  <tr style="font-weight:bold; background:#f9f9f9;">
+                    <td class="text-end">Grand Total</td>
+                    <td class="text-end"><%= totalKgs %></td>
+                    <td class="text-end"><%= totalBags %></td>
+                    <td class="text-end"><%= totalQuintals.toFixed(2) %></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    <% } else if (selectedAgent) { %>
+      <div class="alert alert-info">No records found for this agent.</div>
+    <% } %>
+  </div>
+</div>
+
+<script>
+  $("#agentSelect").on("change", function () {
+    const agentId = $(this).val();
+    if (agentId) {
+      $("#content-area").load(`/reports/agent/${agentId}`);
+    } else {
+      $("#content-area").html("");
+    }
+  });
+
+  $("#printBtn").on("click", function () {
+    const printContents = document.getElementById("reportTableWrapper").innerHTML;
+    const win = window.open("", "", "height=800,width=1100");
+
+    const now = new Date();
+    const options = { day: "numeric", month: "short", year: "2-digit" };
+    const formattedDate = now.toLocaleDateString("en-GB", options).replace(",", "");
+
+    win.document.write("<html><head><title>Agent Report</title>");
+    win.document.write("<style>");
+    win.document.write(`
+      body { font-family: "Times New Roman", serif; font-size: 11pt; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+      table, th, td { border: 1px solid black !important; }
+      th, td { padding: 4px; }
+      thead { font-weight: bold; background: #f2f2f2; }
+      @page { margin: 20mm; }
+      body::before { content: "${formattedDate}"; position: fixed; top: 0; right: 0; font-size: 10pt; }
+    `);
+    win.document.write("</style></head><body>");
+    win.document.write(printContents);
+    win.document.write("</body></html>");
+    win.document.close();
+
+    setTimeout(() => {
+      win.print();
+    }, 500);
+
+    setTimeout(() => {
+      win.close();
+    }, 1000);
+  });
+</script>
