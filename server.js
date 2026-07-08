@@ -293,12 +293,139 @@ app.delete("/api/agents/:id", authenticateToken, (req, res) => {
 });
 
 /* ---------- API: ITEMS ---------- */
-app.get("/api/items", authenticateToken, (req, res) => {
-  db.all("SELECT * FROM Item ORDER BY Name", [], (err, rows) => {
-    if (err) return res.status(400).json({ error: err.message });
-    res.json(rows);
-  });
+// app.get("/api/items", authenticateToken, (req, res) => {
+//   db.all("SELECT * FROM Item ORDER BY Name", [], (err, rows) => {
+//     if (err) return res.status(400).json({ error: err.message });
+//     res.json(rows);
+//   });
+// });
+
+app.get("/api/ricesummary", (req, res) => {
+
+    const sql = `
+            SELECT 
+              r.RiceId AS RiceId,
+              r.RiceType AS ItemName,
+              ROUND(SUM(oi.Bags * oi.Kgs) / 100.0, 2) AS Quintals
+            FROM Orders o
+            LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
+            LEFT JOIN Shop s ON s.ShopId = o.ShopId
+            LEFT JOIN Item i ON i.ItemId = oi.ItemId
+            LEFT JOIN Status st ON st.StatusId = oi.StatusId
+            LEFT JOIN Rice r ON r.RiceId = i.RiceId
+            LEFT JOIN Brand b ON b.BrandId = i.BrandId
+            WHERE st.StatusId IN (1,2) AND o.DeliveryDate IS NULL 
+            GROUP BY i.RiceId
+            ORDER BY r.Odr
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({
+                success: false,
+                error: "Database error"
+            });
+        }
+
+        res.json(rows);
+    });
 });
+
+app.get("/api/brandsummary", (req, res) => {
+
+    const sql = `
+        SELECT
+            r.RiceId,
+            r.RiceType AS ItemName,
+            b.BrandName,
+            oi.Kgs,
+            oi.Bags,
+            ROUND(SUM(oi.Bags * oi.Kgs) / 100.0, 2) AS Quintals
+        FROM Orders o
+        LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
+        LEFT JOIN Item i ON i.ItemId = oi.ItemId
+        LEFT JOIN Status st ON st.StatusId = oi.StatusId
+        LEFT JOIN Rice r ON r.RiceId = i.RiceId
+        LEFT JOIN Brand b ON b.BrandId = i.BrandId
+        WHERE st.StatusId IN (1,2)
+          AND o.DeliveryDate IS NULL
+        GROUP BY r.RiceId, b.BrandId, oi.Kgs
+        ORDER BY r.Odr, oi.Kgs, b.BrandId, oi.kgs asc
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                error: "Database error"
+            });
+        }
+
+        const grouped = [];
+
+        rows.forEach(row => {
+            let rice = grouped.find(x => x.RiceId === row.RiceId);
+
+            if (!rice) {
+                rice = {
+                    RiceId: row.RiceId,
+                    ItemName: row.ItemName,
+                    Quintals: 0,
+                    brands: []
+                };
+                grouped.push(rice);
+            }
+
+            const quintals = Number(row.Quintals);
+
+            rice.Quintals += quintals;
+
+            rice.brands.push({
+                BrandName: row.BrandName,
+                Kgs: row.Kgs,
+                Bags: row.Bags,
+                Quintals: quintals
+            });
+        });
+
+        // Optional: Round totals to 2 decimal places
+        grouped.forEach(rice => {
+            rice.Quintals = Number(rice.Quintals.toFixed(2));
+        });
+
+        res.json(grouped);
+    });
+
+});
+
+
+
+app.get("/api/items", (req, res) => {
+
+    const sql = `
+        SELECT  
+           i.ItemId, r.RiceType Name, b.BrandName Brand, i.Ord, i.Grp, i.RiceId, i.BrandId, i.IsActive 
+        FROM Item i
+        JOIN Rice r ON i.RiceId = r.RiceId
+        JOIN Brand b ON i.BrandId = b.BrandId
+        Where i.IsActive = 1
+        Order by r.TypeId, r.Odr
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({
+                success: false,
+                error: "Database error"
+            });
+        }
+
+        res.json(rows);
+    });
+});
+
 
 app.get("/api/items/:id", authenticateToken, (req, res) => {
   db.get("SELECT * FROM Item WHERE ItemId = ?", [req.params.id], (err, row) => {

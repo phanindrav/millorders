@@ -11,6 +11,12 @@ import {
   IconButton,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Toolbar,
   Typography,
 } from '@mui/material';
@@ -36,13 +42,24 @@ const api = {
   shops: `${apiBase}/api/shops`,
   items: `${apiBase}/api/items`,
   orders: `${apiBase}/api/orders/1`,
+  riceSummary: `${apiBase}/api/ricesummary`,
+  brandSummary: `${apiBase}/api/brandsummary`,
 };
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 function App() {
   const [agents, setAgents] = useState([]);
   const [shops, setShops] = useState([]);
   const [items, setItems] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [riceSummary, setRiceSummary] = useState([]);
+  const [brandSummary, setBrandSummary] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('overview');
@@ -61,24 +78,30 @@ function App() {
     const loadData = async () => {
       try {
         const token = localStorage.getItem('jwtToken');
-        const [agentsResponse, shopsResponse, itemsResponse, ordersResponse] = await Promise.all([
+        const [agentsResponse, shopsResponse, itemsResponse, ordersResponse, riceSummaryResponse, brandSummaryResponse] = await Promise.all([
           fetch(api.agents, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
           fetch(api.shops, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
           fetch(api.items, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
           fetch(api.orders, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+          fetch(api.riceSummary, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+          fetch(api.brandSummary, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
         ]);
 
-        const [agentsData, shopsData, itemsData, ordersData] = await Promise.all([
+        const [agentsData, shopsData, itemsData, ordersData, riceSummaryData, brandSummaryData] = await Promise.all([
           agentsResponse.json(),
           shopsResponse.json(),
           itemsResponse.json(),
           ordersResponse.json(),
+          riceSummaryResponse.json(),
+          brandSummaryResponse.json()
         ]);
 
         setAgents(agentsData || []);
         setShops(shopsData || []);
         setItems(itemsData || []);
         setOrders(ordersData || []);
+        setRiceSummary(riceSummaryData || []);
+        setBrandSummary(brandSummaryData || []);
       } catch (error) {
         console.error('Failed to load dashboard data', error);
       } finally {
@@ -128,6 +151,11 @@ function App() {
     return <LoginPage onSuccess={handleLogin} />;
   }
 
+  const totalQuintals = riceSummary.reduce(
+    (sum, row) => sum + Number(row.Quintals || 0),
+    0
+  );
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <SidebarNavigation open={mobileOpen} onClose={() => setMobileOpen(false)} selectedView={activeView} onNavigate={(view) => setActiveView(view)} />
@@ -172,74 +200,273 @@ function App() {
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
-        <Paper elevation={0} sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, mb: 3, bgcolor: 'linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%)' }}>
-          <Grid container spacing={3} alignItems="center">
-            <Grid item xs={12} md={8}>
-              <Typography variant="overline" color="primary" sx={{ fontWeight: 700, letterSpacing: 1.4 }}>
-                Daily command center
-              </Typography>
-              <Typography variant="h4" sx={{ mb: 1 }}>
-                Monitor agents, shops, stock and deliveries in one place.
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 720 }}>
-                A professional control panel designed for rapid decision-making across procurement, order fulfillment and partner management.
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Stack spacing={1.5}>
-                <Button variant="contained" size="large">Create New Order</Button>
-                <Button variant="outlined" size="large">View Analytics</Button>
-              </Stack>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        <Grid container spacing={2.5} sx={{ mb: 3 }}>
-          {summaryCards.map((card) => (
-            <Grid item xs={12} sm={6} lg={3} key={card.title}>
-              <StatCard {...card} value={loading ? '—' : card.value} subtitle={loading ? 'Loading...' : card.subtitle} />
-            </Grid>
-          ))}
-        </Grid>
-
         {activeView === 'overview' ? (
-          <Grid container spacing={2.5}>
-            <Grid item xs={12} lg={8}>
-              <DataTable
-                title="Pending orders"
-                subtitle="Latest active operations requiring attention"
-                rows={recentOrders}
-                columns={[
-                  { key: 'agent', label: 'Agent' },
-                  { key: 'shop', label: 'Shop' },
-                  { key: 'place', label: 'Place' },
-                  { key: 'amount', label: 'Amount' },
-                ]}
-              />
-            </Grid>
-            <Grid item xs={12} lg={4}>
-              <Card variant="outlined">
-                <CardContent>
-                  <Typography variant="h6">Operational status</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Your team is aligned with live inventory and order activity.
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Card
+                elevation={6}
+                sx={{
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  transition: "0.3s",
+                  "&:hover": {
+                    transform: "translateY(-3px)",
+                    boxShadow: 8,
+                  },
+                }}
+              >
+                {/* Header */}
+                <Box
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "white",
+                    px: 3,
+                    py: 2,
+                  }}
+                >
+                  <Typography variant="h6" fontWeight="bold">
+                    Item Order Summary
                   </Typography>
-                  <Stack spacing={1.5}>
-                    {[
-                      { label: 'Orders synced', value: `${orders.length} live`, color: 'success' },
-                      { label: 'Partner network', value: `${agents.length} agents`, color: 'primary' },
-                      { label: 'Distribution reach', value: `${shops.length} shops`, color: 'secondary' },
-                    ].map((item) => (
-                      <Paper key={item.label} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="body2">{item.label}</Typography>
-                          <Typography variant="subtitle2" color={`${item.color}.main`}>
-                            {item.value}
-                          </Typography>
-                        </Stack>
-                      </Paper>
-                    ))}
-                  </Stack>
+
+                  <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                    Aggregated pending order quantities
+                  </Typography>
+                </Box>
+
+                <CardContent sx={{ p: 0 }}>
+                  <TableContainer>
+                    <Table size="small">
+
+                      <TableHead>
+                        <TableRow
+                          sx={{
+                            bgcolor: "grey.100",
+                          }}
+                        >
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            Item
+                          </TableCell>
+
+                          <TableCell
+                            align="right"
+                            sx={{ fontWeight: 700 }}
+                          >
+                            Qtls
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+
+                      <TableBody>
+                        {riceSummary.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={2}
+                              align="center"
+                              sx={{
+                                py: 5,
+                                color: "text.secondary",
+                              }}
+                            >
+                              No pending orders
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          riceSummary.map((row, index) => (
+                            <TableRow
+                              key={index}
+                              hover
+                              sx={{
+                                bgcolor:
+                                  index % 2 === 0
+                                    ? "background.default"
+                                    : "grey.50",
+                              }}
+                            >
+                              <TableCell sx={{ fontWeight: 500 }}>
+                                {row.ItemName}
+                              </TableCell>
+
+                              <TableCell
+                                align="right"
+                                sx={{
+                                  fontWeight: "bold",
+                                  color: "primary.main",
+                                  fontSize: "1rem",
+                                }}
+                              >
+                                {formatNumber(row.Quintals)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                        <TableRow
+                          sx={{
+                            "& td": {
+                              color: "green",
+                              fontWeight: "bold",
+                              fontSize: "1rem",
+                            },
+                          }}
+                        >
+                          <TableCell>Total</TableCell>
+                          <TableCell align="right">
+                            {formatNumber(totalQuintals)}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            </Grid>
+             <Grid item xs={12} md={6}>
+              <Card
+                elevation={6}
+                sx={{
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  transition: "0.3s",
+                  "&:hover": {
+                    transform: "translateY(-3px)",
+                    boxShadow: 8,
+                  },
+                }}
+              >
+                {/* Header */}
+                <Box
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "white",
+                    px: 3,
+                    py: 2,
+                  }}
+                >
+                  <Typography variant="h6" fontWeight="bold">
+                    Item Order Summary
+                  </Typography>
+
+                  <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                    Aggregated pending order quantities
+                  </Typography>
+                </Box>
+
+                <CardContent sx={{ p: 0 }}>
+                  <TableContainer>
+                    <Table size="small">
+
+                      <TableHead>
+                        <TableRow
+                          sx={{
+                            bgcolor: "grey.100",
+                          }}
+                        >
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            Item
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>
+                            Brand
+                          </TableCell>
+                          <TableCell
+                            align="right"
+                            sx={{ fontWeight: 700 }}
+                          >
+                            Bags
+                          </TableCell>
+                          <TableCell
+                            align="right"
+                            sx={{ fontWeight: 700 }}
+                          >
+                            Kgs
+                          </TableCell>
+                          <TableCell
+                            align="right"
+                            sx={{ fontWeight: 700 }}
+                          >
+                            Qtls
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+
+                     <TableBody>
+
+                      {brandSummary.length === 0 ? (
+                          <TableRow>
+                              <TableCell colSpan={5} align="center">
+                                  No pending orders
+                              </TableCell>
+                          </TableRow>
+                      ) : (
+
+                          brandSummary.map(item =>
+
+                              item.brands.map((brand, index) => (
+
+                                  <TableRow key={`${item.RiceId}-${index}`} hover>
+
+                                      {index === 0 && (
+                                          <TableCell
+                                              rowSpan={item.brands.length}
+                                              sx={{
+                                                  fontWeight: "bold",
+                                                  verticalAlign: "top",
+                                                  bgcolor: "grey.100"
+                                              }}
+                                          >
+                                              <Typography variant="subtitle2" fontWeight="bold">
+                                                {item.ItemName}
+                                              </Typography>
+
+                                              <Typography
+                                                variant="caption"
+                                                color="primary.main"
+                                                fontWeight="bold"
+                                              >
+                                                Total: {formatNumber(item.Quintals)} Qtls
+                                              </Typography>
+  
+                                          </TableCell>
+                                      )}
+
+                                      <TableCell>{brand.BrandName}</TableCell>
+                                      <TableCell align="right">
+                                          {brand.Bags}
+                                      </TableCell>
+
+                                      <TableCell align="right">
+                                          {brand.Kgs}
+                                      </TableCell>
+
+                                      <TableCell align="right">
+                                          {formatNumber(brand.Quintals)}
+                                      </TableCell>
+
+                                  </TableRow>
+
+                              ))
+
+                          )
+
+                      )}
+
+                      <TableRow
+                          sx={{
+                              "& td": {
+                                  fontWeight: "bold",
+                                  color: "green"
+                              }
+                          }}
+                      >
+                          <TableCell colSpan={4}>Total</TableCell>
+                          <TableCell align="right">
+                              {formatNumber(totalQuintals)}
+                          </TableCell>
+                      </TableRow>
+
+                      </TableBody>
+
+                    </Table>
+                  </TableContainer>
                 </CardContent>
               </Card>
             </Grid>

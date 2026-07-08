@@ -85,7 +85,6 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
     try {
       const response = await fetch(`${apiBase}/api/OrderItem`, { headers: getAuthHeaders() });
       const data = await response.json();
-
       const orderItems = (Array.isArray(data) ? data : []).filter((item) => String(item.OrderId) === String(order.OrderId));
       setItems(orderItems);
     } catch (error) {
