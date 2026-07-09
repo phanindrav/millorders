@@ -44,6 +44,7 @@ const api = {
   orders: `${apiBase}/api/orders/1`,
   riceSummary: `${apiBase}/api/ricesummary`,
   brandSummary: `${apiBase}/api/brandsummary`,
+  agentSummary: `${apiBase}/api/agentSummary`,
 };
 
 function formatNumber(value) {
@@ -60,6 +61,7 @@ function App() {
   const [orders, setOrders] = useState([]);
   const [riceSummary, setRiceSummary] = useState([]);
   const [brandSummary, setBrandSummary] = useState([]);
+  const [agentSummary, setAgentSummary] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('overview');
@@ -78,22 +80,24 @@ function App() {
     const loadData = async () => {
       try {
         const token = localStorage.getItem('jwtToken');
-        const [agentsResponse, shopsResponse, itemsResponse, ordersResponse, riceSummaryResponse, brandSummaryResponse] = await Promise.all([
+        const [agentsResponse, shopsResponse, itemsResponse, ordersResponse, riceSummaryResponse, brandSummaryResponse, agentSummaryResponse] = await Promise.all([
           fetch(api.agents, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
           fetch(api.shops, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
           fetch(api.items, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
           fetch(api.orders, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
           fetch(api.riceSummary, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-          fetch(api.brandSummary, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+          fetch(api.brandSummary, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+          fetch(api.agentSummary, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
         ]);
 
-        const [agentsData, shopsData, itemsData, ordersData, riceSummaryData, brandSummaryData] = await Promise.all([
+        const [agentsData, shopsData, itemsData, ordersData, riceSummaryData, brandSummaryData, agentSummaryData] = await Promise.all([
           agentsResponse.json(),
           shopsResponse.json(),
           itemsResponse.json(),
           ordersResponse.json(),
           riceSummaryResponse.json(),
-          brandSummaryResponse.json()
+          brandSummaryResponse.json(),
+          agentSummaryResponse.json()
         ]);
 
         setAgents(agentsData || []);
@@ -102,6 +106,7 @@ function App() {
         setOrders(ordersData || []);
         setRiceSummary(riceSummaryData || []);
         setBrandSummary(brandSummaryData || []);
+        setAgentSummary(agentSummaryData || []);
       } catch (error) {
         console.error('Failed to load dashboard data', error);
       } finally {
@@ -462,6 +467,185 @@ function App() {
                               {formatNumber(totalQuintals)}
                           </TableCell>
                       </TableRow>
+
+                      </TableBody>
+
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12}>
+              <Card
+                elevation={6}
+                sx={{
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  transition: "0.3s",
+                  "&:hover": {
+                    transform: "translateY(-3px)",
+                    boxShadow: 8,
+                  },
+                }}
+              >
+                {/* Header */}
+                <Box
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "white",
+                    px: 3,
+                    py: 2,
+                  }}
+                >
+                  <Typography variant="h6" fontWeight="bold">
+                    Agent Order Summary
+                  </Typography>
+
+                  <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                    Pending Orders by Agent
+                  </Typography>
+                </Box>
+
+                <CardContent sx={{ p: 0 }}>
+                  <TableContainer>
+                    <Table size="small">
+
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: "grey.100" }}>
+                          <TableCell sx={{ fontWeight: 700 }}>Agent</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Rice</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Brand</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>Bags</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>Kgs</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>Qtls</TableCell>
+                        </TableRow>
+                      </TableHead>
+
+                      <TableBody>
+
+                        {agentSummary.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} align="center">
+                              No pending orders {agentSummary.length}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+
+                          agentSummary.map(agent => {
+
+                            const agentRows = agent.rice.reduce(
+                              (sum, rice) => sum + rice.brands.length,
+                              0
+                            );
+
+                            let agentRendered = false;
+
+                            return agent.rice.map(rice => {
+
+                              let riceRendered = false;
+
+                              return rice.brands.map((brand, index) => (
+
+                                <TableRow
+                                  key={`${agent.agentId}-${rice.riceId}-${brand.brandId}`}
+                                  hover
+                                >
+
+                                  {!agentRendered && (
+                                    <TableCell
+                                      rowSpan={agentRows}
+                                      sx={{
+                                        bgcolor: "grey.100",
+                                        verticalAlign: "top",
+                                        fontWeight: "bold",
+                                      }}
+                                    >
+                                      <Typography fontWeight="bold">
+                                        {agent.agentName}
+                                      </Typography>
+
+                                      <Typography
+                                        variant="caption"
+                                        color="primary.main"
+                                        fontWeight="bold"
+                                      >
+                                        Total : {formatNumber(agent.quintals)} Qtls
+                                      </Typography>
+                                    </TableCell>
+                                  )}
+
+                                  {!riceRendered && (
+                                    <TableCell
+                                      rowSpan={rice.brands.length}
+                                      sx={{
+                                        bgcolor: "grey.50",
+                                        verticalAlign: "top",
+                                      }}
+                                    >
+                                      <Typography fontWeight="bold">
+                                        {rice.riceType}
+                                      </Typography>
+
+                                      <Typography
+                                        variant="caption"
+                                        color="secondary.main"
+                                      >
+                                        {formatNumber(rice.quintals)} Qtls
+                                      </Typography>
+                                    </TableCell>
+                                  )}
+
+                                  <TableCell>{brand.brandName}</TableCell>
+
+                                  <TableCell align="right">
+                                    {brand.bags}
+                                  </TableCell>
+
+                                  <TableCell align="right">
+                                    {brand.kgs}
+                                  </TableCell>
+
+                                  <TableCell align="right">
+                                    {formatNumber(brand.quintals)}
+                                  </TableCell>
+
+                                  {(() => {
+                                    agentRendered = true;
+                                    riceRendered = true;
+                                    return null;
+                                  })()}
+
+                                </TableRow>
+
+                              ));
+
+                            });
+
+                          })
+
+                        )}
+
+                        <TableRow
+                          sx={{
+                            "& td": {
+                              fontWeight: "bold",
+                              color: "green",
+                            },
+                          }}
+                        >
+                          <TableCell colSpan={5}>
+                            Grand Total
+                          </TableCell>
+
+                          <TableCell align="right">
+                            {formatNumber(
+                              agentSummary.reduce(
+                                (sum, a) => sum + a.quintals,
+                                0
+                              )
+                            )}
+                          </TableCell>
+                        </TableRow>
 
                       </TableBody>
 

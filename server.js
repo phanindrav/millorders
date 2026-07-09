@@ -340,7 +340,7 @@ app.get("/api/brandsummary", (req, res) => {
             r.RiceType AS ItemName,
             b.BrandName,
             oi.Kgs,
-            oi.Bags,
+            SUM(oi.Bags) Bags,
             ROUND(SUM(oi.Bags * oi.Kgs) / 100.0, 2) AS Quintals
         FROM Orders o
         LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
@@ -399,7 +399,107 @@ app.get("/api/brandsummary", (req, res) => {
 
 });
 
+app.get("/api/agentsummary", (req, res) => {
 
+    const sql = `
+        SELECT
+            a.AgentId,
+            a.AgentName,
+            r.RiceId,
+            r.RiceType,
+            b.BrandId,
+            b.BrandName,
+            SUM(oi.Bags) AS Bags,
+            oi.Kgs AS Kgs,
+            ROUND(SUM(oi.Bags * oi.Kgs) / 100.0, 2) AS Quintals
+        FROM Orders o
+        INNER JOIN OrderItem oi ON o.OrderId = oi.OrderId
+        INNER JOIN Shop s ON s.ShopId = o.ShopId
+        INNER JOIN Agent a ON a.AgentId = s.AgentId
+        INNER JOIN Item i ON i.ItemId = oi.ItemId
+        INNER JOIN Status st ON st.StatusId = oi.StatusId
+        INNER JOIN Rice r ON r.RiceId = i.RiceId
+        INNER JOIN Brand b ON b.BrandId = i.BrandId
+        WHERE st.StatusId IN (1,2)
+          AND o.DeliveryDate IS NULL
+        GROUP BY
+            a.AgentId,
+            r.RiceId,
+            oi.Kgs,
+            b.BrandId
+        ORDER BY
+            a.AgentId,
+            r.Odr,
+            b.BrandName
+    `;
+
+    db.all(sql, [], (err, rows) => {
+
+        if (err) {
+            console.error(err);
+            return res.status(500).json({
+                success: false,
+                error: "Database error"
+            });
+        }
+
+        const agents = [];
+
+        rows.forEach(row => {
+
+            // Agent
+            let agent = agents.find(a => a.agentId === row.AgentId);
+
+            if (!agent) {
+                agent = {
+                    agentId: row.AgentId,
+                    agentName: row.AgentName,
+                    quintals: 0,
+                    rice: []
+                };
+                agents.push(agent);
+            }
+
+            // Rice
+            let rice = agent.rice.find(r => r.riceId === row.RiceId);
+
+            if (!rice) {
+                rice = {
+                    riceId: row.RiceId,
+                    riceType: row.RiceType,
+                    quintals: 0,
+                    brands: []
+                };
+                agent.rice.push(rice);
+            }
+
+            // Brand
+            rice.brands.push({
+                brandId: row.BrandId,
+                brandName: row.BrandName,
+                bags: Number(row.Bags),
+                kgs: Number(row.Kgs),
+                quintals: Number(row.Quintals)
+            });
+
+            rice.quintals += Number(row.Quintals);
+            agent.quintals += Number(row.Quintals);
+        });
+
+        // Round totals
+        agents.forEach(agent => {
+            agent.quintals = Number(agent.quintals.toFixed(2));
+
+            agent.rice.forEach(rice => {
+                rice.quintals = Number(rice.quintals.toFixed(2));
+            });
+        });
+
+        res.json(agents);
+
+    });
+
+});
 
 app.get("/api/items", (req, res) => {
 
