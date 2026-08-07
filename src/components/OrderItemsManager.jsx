@@ -229,10 +229,10 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                 <TextField label="Bags" type="number" fullWidth value={bags} onChange={(event) => setBags(event.target.value)} required />
               </Grid>
               <Grid item xs={12} md={3}>
-                <TextField label="Kgs" type="number" fullWidth value={kgs} onChange={(event) => setKgs(event.target.value)} required />
+                <TextField label="Rate" type="number" fullWidth value={rate} onChange={(event) => setRate(event.target.value)} required />
               </Grid>
               <Grid item xs={12} md={3}>
-                <TextField label="Rate" type="number" fullWidth value={rate} onChange={(event) => setRate(event.target.value)} required />
+                <TextField label="Kgs" type="number" fullWidth value={kgs} onChange={(event) => setKgs(event.target.value)} required />
               </Grid>
               <Grid item xs={12} md={3}>
                 <TextField
