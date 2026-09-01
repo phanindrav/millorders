@@ -71,7 +71,6 @@ function addDaysToDate(dateString, days) {
 function OrdersPanel({ agents = [], initialAgentId = '' }) {
   const [selectedAgentId, setSelectedAgentId] = useState(initialAgentId || agents[0]?.AgentId || '');
   const [shops, setShops] = useState([]);
-  const [allShops, setAllShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -138,21 +137,6 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
     }
   };
 
-  const loadAllShops = async () => {
-    try {
-      const response = await fetch(`${apiBase}/api/shops`, { headers: getAuthHeaders() });
-      const data = await response.json();
-      setAllShops(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Failed to load all shops', error);
-      setAllShops([]);
-    }
-  };
-
-  useEffect(() => {
-    loadAllShops();
-  }, []);
-
   useEffect(() => {
     if (agents.length && !selectedAgentId) {
       setSelectedAgentId(agents[0].AgentId);
@@ -170,18 +154,6 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
     () => agents.find((agent) => String(agent.AgentId) === String(selectedAgentId)) || null,
     [agents, selectedAgentId]
   );
-
-  const shopSearchOptions = useMemo(() => {
-    return allShops.map((shop) => {
-      const agentName = shop.AgentName || agents.find((agent) => String(agent.AgentId) === String(shop.AgentId))?.AgentName || 'Agent';
-      return {
-        ...shop,
-        AgentId: shop.AgentId,
-        AgentName: agentName,
-        label: `${shop.ShopName || 'Shop'}${shop.Place ? ` • ${shop.Place}` : ''} • ${agentName}`,
-      };
-    });
-  }, [allShops, agents]);
 
   const filteredOrders = useMemo(() => {
     const q = searchValue.trim().toLowerCase();
@@ -219,7 +191,6 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
       });
       if (!response.ok) throw new Error('Unable to create shop.');
       await loadShops(selectedAgentId);
-      await loadAllShops();
       setCreateShopDialogOpen(false);
       setSnackbar({ open: true, message: 'Shop created successfully.', severity: 'success' });
     } catch (error) {
@@ -251,7 +222,16 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
         throw new Error(data.error || 'Unable to add order.');
       }
 
-      setSelectedShop(null);
+      const createdOrder = await response.json().catch(() => ({}));
+      const newOrder = {
+        OrderId: createdOrder.orderId || createdOrder.OrderId,
+        ShopName: selectedShop.ShopName,
+        Place: selectedShop.Place,
+        AgentId: selectedAgentId,
+      };
+
+      setSelectedOrder(newOrder);
+      setItemsDialogOpen(true);
       setOrderDate(getTodayString());
       await loadOrders(selectedAgentId);
       setSnackbar({ open: true, message: 'Order added successfully.', severity: 'success' });
@@ -350,41 +330,45 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
       <Card variant="outlined">
         <CardContent>
           <form onSubmit={handleSubmit}>
-            <Grid container spacing={2} alignItems="flex-start">
-              <Grid item xs={12} md={5}>
-                <Stack spacing={1}>
-                  {shopsLoading ? (
-                    <Alert severity="info" sx={{ py: 0.5 }}>
-                      Loading shops for this agent...
-                    </Alert>
-                  ) : (
-                    <Autocomplete
-                      options={shopSearchOptions}
-                      value={selectedShop}
-                      getOptionLabel={(option) => option?.label || option?.ShopName || ''}
-                      isOptionEqualToValue={(option, value) => String(option.ShopId) === String(value?.ShopId) && String(option.AgentId) === String(value?.AgentId)}
-                      onChange={(_, value) => {
-                        if (!value) {
-                          setSelectedShop(null);
-                          setSelectedAgentId('');
-                          return;
-                        }
-
-                        setSelectedShop(value);
-                        setSelectedAgentId(String(value.AgentId || ''));
-                        if (value.AgentId) {
-                          loadOrders(value.AgentId);
-                        }
-                      }}
-                      renderInput={(params) => <TextField {...params} label="Search shop and agent" />}
-                    />
-                  )}
-                  <Button variant="outlined" color="primary" onClick={openCreateShopDialog}>
-                    {shops.length === 0 ? 'Create first shop' : 'Add shop'}
-                  </Button>
-                </Stack>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={3}>
+                <Autocomplete
+                  options={agents}
+                  value={selectedAgentOption}
+                  getOptionLabel={(option) => option?.AgentName || ''}
+                  isOptionEqualToValue={(option, value) => String(option.AgentId) === String(value?.AgentId)}
+                  onChange={(_, value) => {
+                    setSelectedAgentId(value?.AgentId || '');
+                    setSelectedShop(null);
+                  }}
+                  renderInput={(params) => <TextField {...params} label="Agent" />}
+                />
               </Grid>
               <Grid item xs={12} md={3}>
+                {shopsLoading ? (
+                  <Alert severity="info" sx={{ py: 0.5 }}>
+                    Loading shops...
+                  </Alert>
+                ) : !selectedAgentId ? (
+                  <Alert severity="info" sx={{ py: 0.5 }}>
+                    Select agent
+                  </Alert>
+                ) : shops.length === 0 ? (
+                  <Alert severity="info" sx={{ py: 0.5 }}>
+                    No shops yet
+                  </Alert>
+                ) : (
+                  <Autocomplete
+                    options={shops}
+                    value={selectedShop}
+                    getOptionLabel={(option) => `${option.ShopName || ''}${option.Place ? ` • ${option.Place}` : ''}`}
+                    isOptionEqualToValue={(option, value) => String(option.ShopId) === String(value?.ShopId)}
+                    onChange={(_, value) => setSelectedShop(value)}
+                    renderInput={(params) => <TextField {...params} label="Shop" />}
+                  />
+                )}
+              </Grid>
+              <Grid item xs={12} md={2}>
                 <TextField
                   label="Order Date"
                   type="date"
@@ -406,10 +390,27 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                 </Button>
               </Grid>
               <Grid item xs={12} md={2}>
-                <Button type="submit" variant="contained" fullWidth sx={{ height: 56 }} startIcon={<AddCircleOutlineRoundedIcon />}>
-                  Add order
-                </Button>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    sx={{ height: 56, minWidth: 56, px: 1 }}
+                    aria-label="Add order"
+                    disabled={!selectedAgentId || !selectedShop?.ShopId}
+                  >
+                    <AddCircleOutlineRoundedIcon />
+                  </Button>
+                </Box>
               </Grid>
+              {selectedAgentId ? (
+                <Grid item xs={12} md={1}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button variant="outlined" color="primary" onClick={openCreateShopDialog} disabled={!selectedAgentId} sx={{ height: 56, minWidth: 56, px: 1 }} aria-label="Add shop">
+                      +
+                    </Button>
+                  </Box>
+                </Grid>
+              ) : null}
             </Grid>
           </form>
 
