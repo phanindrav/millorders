@@ -38,6 +38,19 @@ function formatDate(dateStr) {
   });
 }
 
+function formatOrderItems(value) {
+  if (!value) return '—';
+
+  const cleaned = String(value)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s*\n\s*/g, '\n')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  return cleaned || '—';
+}
+
 function OrdersPanel({ agents = [], initialAgentId = '' }) {
   const [selectedAgentId, setSelectedAgentId] = useState(initialAgentId || agents[0]?.AgentId || '');
   const [shops, setShops] = useState([]);
@@ -233,7 +246,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
     order: `${order.OrderId || '—'} • ${formatDate(order.Date)}`,
     shop: `${order.ShopName || '—'}${order.Place ? ` • ${order.Place}` : ''}`,
     quintals: order.TotalQuintals || '0',
-    items: order.Items || '—',
+    items: formatOrderItems(order.Items),
     actions: (
       <Stack direction="row" spacing={1}>
         <Button size="small" variant="outlined" color="primary" onClick={() => openItemsDialog(order)}>
@@ -335,14 +348,22 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
         />
 
         <DataTable
-          title="Orders" 
+          title="Orders"
           subtitle={loading ? 'Loading orders…' : 'Track daily operations and delivery updates'}
           rows={tableRows}
           columns={[
             { key: 'order', label: 'Order' },
             { key: 'shop', label: 'Shop' },
             { key: 'quintals', label: 'Quintals' },
-            { key: 'items', label: 'Items' },
+            {
+              key: 'items',
+              label: 'Items',
+              render: (row) => (
+                <Box component="div" sx={{ whiteSpace: 'pre-line', lineHeight: 1.6, minWidth: 220 }}>
+                  {row.items}
+                </Box>
+              ),
+            },
             { key: 'actions', label: 'Actions' },
           ]}
         />

@@ -646,12 +646,12 @@ app.get("/api/orders/:agentId", authenticateToken, (req, res) => {
       ROUND( SUM(oi.Bags * oi.Kgs / 100 ), 2) AS TotalQuintals,
       ROUND(SUM((oi.Bags * oi.Kgs / 100) * oi.Rate), 0) AS TotalAmount,
       GROUP_CONCAT(
-          r.RiceType || ' ' || b.BrandName || ', <i>' || 
-          printf('%g', oi.Bags) || ' bags-' || 
-          printf('%g', oi.Kgs) || ' kgs-' || 
-          printf('%.2f', oi.Bags * oi.Kgs / 100) || ' qtls-₹' || 
-          printf('%g', oi.Rate) || '</i>',
-          '<br/>'
+          r.RiceType || ' ' || b.BrandName || ', ' ||
+          printf('%g', oi.Bags) || ' bags - ' ||
+          printf('%g', oi.Kgs) || ' kgs - ' ||
+          printf('%.2f', oi.Bags * oi.Kgs / 100) || ' qtls - ₹' ||
+          printf('%g', oi.Rate),
+          '\n'
       ) AS Items
     FROM Orders o
     LEFT JOIN Shop s ON o.ShopId = s.ShopId
