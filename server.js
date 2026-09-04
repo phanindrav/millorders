@@ -153,18 +153,27 @@ app.get('/api/reports/agent-summary/:agentId', authenticateToken, (req, res) => 
   const params = !isAll ? [agentId] : [];
 
   const sql = `
-    SELECT 
+    SELECT
+      a.AgentId,
+      a.AgentName,
       o.OrderId,
+      o.Date,
+      s.ShopId,
       s.ShopName,
       s.Place,
+      s.PhoneNumber,
       r.RiceType AS ItemName,
       b.BrandName AS Brand,
       oi.Bags,
       oi.Kgs,
       ROUND(oi.Bags * oi.Kgs / 100.0, 2) AS Quintals,
-      ROUND((oi.Bags * oi.Kgs / 100.0) * oi.Rate, 2) AS Amount
+      oi.Rate,
+      ROUND((oi.Bags * oi.Kgs / 100.0) * oi.Rate, 2) AS Amount,
+      oi.Condition,
+      st.Status
     FROM Orders o
     LEFT JOIN Shop s ON o.ShopId = s.ShopId
+    LEFT JOIN Agent a ON s.AgentId = a.AgentId
     LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
     LEFT JOIN Item i ON i.ItemId = oi.ItemId
     LEFT JOIN Rice r ON r.RiceId = i.RiceId
@@ -172,7 +181,7 @@ app.get('/api/reports/agent-summary/:agentId', authenticateToken, (req, res) => 
     LEFT JOIN Status st ON st.StatusId = oi.StatusId
     WHERE st.StatusId IN (1,2) AND o.DeliveryDate IS NULL
     ${!isAll ? 'AND s.AgentId = ?' : ''}
-    ORDER BY o.OrderId, r.RiceId, b.BrandId
+    ORDER BY a.AgentName, o.Date, o.OrderId
   `;
 
   db.all(sql, params, (err, rows) => {
@@ -237,14 +246,18 @@ app.get('/api/reports/daily-report/:date', authenticateToken, (req, res) => {
   const { date } = req.params;
   const sql = `
     SELECT 
+      a.AgentId,
       a.AgentName,
       s.ShopName,
       s.Place,
       r.RiceType AS ItemName,
+      t.Id As TypeId,
+      t.Name AS TypeName,
       b.BrandName AS Brand,
       oi.Bags,
       oi.Kgs,
       ROUND(oi.Bags * oi.Kgs / 100.0, 2) AS Quintals,
+      ROUND(oi.Rate, 2) AS Rate,
       ROUND((oi.Bags * oi.Kgs / 100.0) * oi.Rate, 2) AS Amount,
       o.OrderId
     FROM Orders o
@@ -253,15 +266,51 @@ app.get('/api/reports/daily-report/:date', authenticateToken, (req, res) => {
     LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
     LEFT JOIN Item i ON i.ItemId = oi.ItemId
     LEFT JOIN Rice r ON r.RiceId = i.RiceId
+    LEFT JOIN "Type" t ON t.Id = r.TypeId
     LEFT JOIN Brand b ON b.BrandId = i.BrandId
     LEFT JOIN Status st ON st.StatusId = oi.StatusId
     WHERE o.DeliveryDate IS NOT NULL AND o.DeliveryDate = ?
-    ORDER BY a.AgentName, o.OrderId
+    ORDER BY a.AgentName, o.OrderId, s.ShopId
   `;
 
   db.all(sql, [date], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ orders: rows || [] });
+  });
+});
+
+app.get('/api/reports/check-report/', authenticateToken, (req, res) => {
+  const sql = `
+    SELECT 
+      o.OrderId, 
+      o.Date, 
+      s.ShopName, 
+      s.Place, 
+      --s.PhoneNumber,
+      r.RiceType AS ItemName, 
+      b.BrandName As Brand, 
+      oi.Bags, 
+      oi.Kgs,
+      oi.Bags * oi.Kgs / 100 AS Quintals,
+      oi.Rate
+      --(oi.Bags * oi.Kgs / 100) * oi.Rate AS Amount,
+      --oi.Condition, 
+      --oi.Notes,
+      --st.Status
+    FROM Orders o
+    LEFT JOIN Shop s ON o.ShopId = s.ShopId
+    LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
+    LEFT JOIN Item i ON i.ItemId = oi.ItemId
+    LEFT JOIN Rice r ON r.RiceId = i.RiceId
+    LEFT JOIN Brand b ON b.BrandId = i.BrandId
+    LEFT JOIN Status st ON st.StatusId = oi.StatusId
+    WHERE  st.StatusId IN (1,2) AND o.DeliveryDate IS NULL
+    ORDER BY o.OrderId, s.ShopId
+  `;
+ 
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ data: rows || [] });
   });
 });
 
@@ -330,6 +379,78 @@ app.get("/api/ricesummary", (req, res) => {
 
         res.json(rows);
     });
+});
+
+app.get("/api/rice-report", (req, res) => {
+  const riceId = req.query.riceId || "all";
+  return app._router.handle ? res.redirect(307, `/api/rice-report/${encodeURIComponent(riceId)}`) : res.json({ items: [], details: [], riceName: "All Rice", selectedRice: riceId });
+});
+
+app.get("/api/rice-report/:riceId", (req, res) => {
+  const { riceId } = req.params;
+
+  let filter = "";
+  let params = [];
+
+  if (riceId !== "all") {
+    filter = "AND r.RiceId = ?";
+    params.push(riceId);
+  }
+
+  const query = `
+    SELECT 
+      o.OrderId, 
+      o.Date, 
+      s.ShopName, 
+      s.Place, 
+      s.PhoneNumber,
+      r.RiceType AS ItemName,
+      b.BrandName AS Brand,
+      oi.Bags,
+      oi.Kgs,
+      ROUND((oi.Bags * oi.Kgs) / 100.0, 2) AS Quintals,
+      oi.Rate,
+      ROUND(((oi.Bags * oi.Kgs) / 100.0) * oi.Rate, 2) AS Amount,
+      oi.Condition,
+      oi.Notes,
+      st.Status
+    FROM Orders o
+    LEFT JOIN Shop s ON o.ShopId = s.ShopId
+    LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
+    LEFT JOIN Item i ON i.ItemId = oi.ItemId
+    LEFT JOIN Rice r ON r.RiceId = i.RiceId
+    LEFT JOIN Brand b ON b.BrandId = i.BrandId
+    LEFT JOIN Status st ON st.StatusId = oi.StatusId
+    WHERE st.StatusId IN (1,2) AND o.DeliveryDate IS NULL ${filter}
+    ORDER BY o.Date, o.OrderId, s.ShopId
+  `;
+
+  db.all("SELECT RiceId, RiceType AS Name FROM Rice ORDER BY Odr", [], (err, items) => {
+    if (err) {
+      console.error("Error fetching rice types:", err);
+      return res.status(500).json({ success: false, error: "Error fetching rice types" });
+    }
+
+    db.all(query, params, (err2, details) => {
+      if (err2) {
+        console.error("Error running rice query:", err2);
+        return res.status(500).json({ success: false, error: "Error fetching rice report" });
+      }
+
+      let riceName = "All Rice";
+      if (riceId !== "all") {
+        const found = items.find(r => String(r.RiceId) === String(riceId));
+        riceName = found ? `${found.Name}` : "Unknown Rice";
+      }
+
+      res.json({
+        items: items || [],
+        selectedRice: riceId,
+        riceName,
+        details: details || []
+      });
+    });
+  });
 });
 
 app.get("/api/brandsummary", (req, res) => {
@@ -1303,32 +1424,32 @@ app.get("/reports/agent/:agentId", (req, res) => {
   const isAll = agentId === "all";
 
   const sqlDetails = `
-    SELECT 
-      o.OrderId, 
-      o.Date, 
-      s.ShopId, 
-      s.ShopName, 
-      s.Place, 
-      s.PhoneNumber, 
-      r.RiceType as ItemName,
-      b.BrandName as Brand,
-      oi.Bags, 
-      oi.Kgs, 
-      oi.Bags * oi.Kgs / 100 AS Quintals,
-      oi.Rate, 
-      (oi.Bags * oi.Kgs / 100) * oi.Rate AS Amount,
-      oi.Condition, 
-      st.Status,
+    SELECT
+      a.AgentId,
       a.AgentName,
-      a.AgentId
+      o.OrderId,
+      o.Date,
+      s.ShopId,
+      s.ShopName,
+      s.Place,
+      s.PhoneNumber,
+      r.RiceType AS ItemName,
+      b.BrandName AS Brand,
+      oi.Bags,
+      oi.Kgs,
+      ROUND(oi.Bags * oi.Kgs / 100.0, 2) AS Quintals,
+      oi.Rate,
+      ROUND((oi.Bags * oi.Kgs / 100.0) * oi.Rate, 2) AS Amount,
+      oi.Condition,
+      st.Status
     FROM Orders o
     LEFT JOIN Shop s ON o.ShopId = s.ShopId
+    LEFT JOIN Agent a ON s.AgentId = a.AgentId
     LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
     LEFT JOIN Item i ON i.ItemId = oi.ItemId
-    LEFT JOIN Rice r ON i.RiceId = r.RiceId
-    LEFT JOIN Brand b on i.BrandId = b.BrandId
+    LEFT JOIN Rice r ON r.RiceId = i.RiceId
+    LEFT JOIN Brand b ON b.BrandId = i.BrandId
     LEFT JOIN Status st ON st.StatusId = oi.StatusId
-    LEFT JOIN Agent a ON s.AgentId = a.AgentId
     WHERE st.StatusId IN (1,2) AND o.DeliveryDate IS NULL
     ${!isAll ? "AND s.AgentId = ?" : ""}
     ORDER BY a.AgentName, o.Date, o.OrderId
@@ -1404,139 +1525,11 @@ app.get("/reports/agent/:agentId", (req, res) => {
   });
 });
 
-// All Agents Report
-app.get("/reports/agent-all/all", (req, res) => {
-
-  const sqlAgents = `SELECT AgentId, AgentName FROM Agent ORDER BY AgentName`;
-
-  db.all(sqlAgents, [], (err, agents) => {
-    if (err) return res.status(500).send("Error fetching agents");
-
-    let reports = [];
-    let completed = 0;
-
-    agents.forEach(agent => {
-    
-      const params = [agent.AgentId];
-
-      const sqlDetails = `
-        SELECT 
-          o.OrderId, o.Date, s.ShopName, s.Place, s.PhoneNumber,
-          r.RiceType AS ItemName, B.BrandName AS Brand, oi.Bags, oi.Kgs,
-          oi.Bags * oi.Kgs / 100 AS Quintals,
-          oi.Rate, (oi.Bags * oi.Kgs / 100) * oi.Rate AS Amount,
-          oi.Condition, st.Status, oi.Notes, s.GST
-        FROM Orders o
-        LEFT JOIN Shop s ON o.ShopId = s.ShopId
-        LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
-        LEFT JOIN Item i ON i.ItemId = oi.ItemId
-        LEFT JOIN Rice r ON r.RiceId = i.RiceId
-        LEFT JOIN Brand b ON i.BrandId = b.BrandId
-        LEFT JOIN Status st ON st.StatusId = oi.StatusId
-        WHERE st.StatusId IN (1,2) AND s.AgentId = ? AND o.DeliveryDate IS NULL
-        ORDER BY o.Date, o.OrderId
-      `;
-
-      const sqlSummaryRice = `
-        SELECT r.RiceType,      
-               ROUND(SUM(oi.Bags * oi.Kgs) / 100.0, 2) AS Quintals
-        FROM Orders o
-        LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
-        LEFT JOIN Shop s ON s.ShopId = o.ShopId
-        LEFT JOIN Item i ON i.ItemId = oi.ItemId
-        LEFT JOIN Rice r ON r.RiceId = i.RiceId
-        LEFT JOIN Status st ON st.StatusId = oi.StatusId
-        WHERE st.StatusId IN (1,2) AND s.AgentId = ? AND o.DeliveryDate IS NULL
-        GROUP BY r.RiceId
-      `;
-
-      const sqlSummaryRiceBrand = `
-        SELECT r.RiceType, b.BrandName, i.Name AS ItemName,
-               SUM(oi.Bags) Bags, oi.Kgs,
-               ROUND(SUM(oi.Bags * oi.Kgs) / 100.0, 2) AS Quintals,
-               oi.Notes
-        FROM Orders o
-        LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
-        LEFT JOIN Shop s ON s.ShopId = o.ShopId
-        LEFT JOIN Item i ON i.ItemId = oi.ItemId
-        LEFT JOIN Rice r ON r.RiceId = i.RiceId
-        LEFT JOIN Brand b ON i.BrandId = b.BrandId
-        LEFT JOIN Status st ON st.StatusId = oi.StatusId
-        WHERE st.StatusId IN (1,2) AND s.AgentId = ? AND o.DeliveryDate IS NULL
-        GROUP BY r.RiceId, b.BrandId, oi.Kgs
-      `;
-
-      db.all(sqlDetails, params, (err1, details) => {
-        if (err1) details = [];
-
-        db.all(sqlSummaryRice, params, (err2, summaryRice) => {
-          if (err2) summaryRice = [];
-
-          db.all(sqlSummaryRiceBrand, params, (err3, summaryRiceBrand) => {
-            if (err3) summaryRiceBrand = [];
-
-            reports.push({
-              agent,
-              reportData: details,
-              summaryRice,
-              summaryRiceBrand,
-              today: new Date()
-            });
-
-            completed++;
-            if (completed === agents.length) {
-              // sort reports by agent name before rendering
-              reports.sort((a, b) => a.agent.AgentName.localeCompare(b.agent.AgentName));
-
-              res.render("partials/agentReportSimple", {
-                layout: false,
-                reports
-              });
-            }
-
-          });
-        });
-      });
-    });
-  });
-});
-
-app.get("/reports/item-summary", (req, res) => {
-  db.all("SELECT AgentId, AgentName FROM Agent", (err, agents) => {
-    if (err) {
-      console.error("Error fetching agents:", err);
-      return res.status(500).send("DB error fetching agents");
-    }
-    res.render("partials/itemsReport", {
-          agents,
-          agentName: "All Agents",
-          selectedAgent: null,
-          summary: [],
-          details: [],
-          formatNumber: (num) => {
-            if (num == null) return "";
-            return new Intl.NumberFormat("en-IN", { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 2 
-            }).format(num);
-          }
-        });
-  });
-});
-
-// reports.js (or inside your app.js route section)
-app.get("/reports/item-summary/:agentId", (req, res) => {
-  //const agentId = req.query.agentId || "all"; // from dropdown (default = all)
-
-  const { agentId } = req.params;
-
-  let filter = "";
-  let params = [];
-
-  if (agentId !== "all") {
-    filter = "AND s.AgentId = ?";
-    params.push(agentId);
-  }
+function renderItemSummaryReport(req, res, agentId) {
+  const selectedAgentId = agentId || "all";
+  const isAll = selectedAgentId === "all";
+  const params = !isAll ? [selectedAgentId] : [];
+  const filter = !isAll ? "AND s.AgentId = ?" : "";
 
   const query1 = `
     SELECT 
@@ -1558,7 +1551,7 @@ app.get("/reports/item-summary/:agentId", (req, res) => {
   const query2 = `
     SELECT 
       r.RiceId AS ItemId,
-      r.RiceType AS ItemName, 
+      r.RiceType AS ItemName,
       b.BrandName AS Brand,
       oi.Kgs,
       r.Odr,
@@ -1577,7 +1570,6 @@ app.get("/reports/item-summary/:agentId", (req, res) => {
     ORDER BY r.Odr ASC, b.BrandName ASC, oi.Kgs ASC
   `;
 
-  // Fetch Agents for dropdown
   db.all("SELECT AgentId, AgentName FROM Agent ORDER BY AgentName", [], (err, agents) => {
     if (err) {
       console.error("Error fetching agents:", err);
@@ -1596,30 +1588,42 @@ app.get("/reports/item-summary/:agentId", (req, res) => {
           return res.status(500).send("Error fetching detailed data");
         }
 
-        // Find agent name from agents array
         let agentName = "All Agents";
-        if (agentId !== "all") {
-          const found = agents.find(a => a.AgentId == agentId);
+        if (!isAll) {
+          const found = agents.find(a => a.AgentId == selectedAgentId);
           agentName = found ? found.AgentName : "Unknown Agent";
         }
 
         res.render("partials/itemsReport", {
           agents,
-          selectedAgent: agentId,
-          agentName: agentName,
-          summary: summaryResults,
-          details: detailResults,
+          selectedAgent: selectedAgentId,
+          agentName,
+          summary: summaryResults || [],
+          details: detailResults || [],
           formatNumber: (num) => {
             if (num == null) return "";
-            return new Intl.NumberFormat("en-IN", { 
-              minimumFractionDigits: 2, 
-              maximumFractionDigits: 2 
+            return new Intl.NumberFormat("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
             }).format(num);
           }
         });
       });
     });
   });
+}
+
+app.get("/reports/agent-all/all", (req, res) => {
+  renderItemSummaryReport(req, res, "all");
+});
+
+app.get("/reports/item-summary", (req, res) => {
+  renderItemSummaryReport(req, res, "all");
+});
+
+app.get("/reports/item-summary/:agentId", (req, res) => {
+  const { agentId } = req.params;
+  renderItemSummaryReport(req, res, agentId);
 });
 
 // Initial load

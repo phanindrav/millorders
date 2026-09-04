@@ -331,6 +331,16 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
         <CardContent>
           <form onSubmit={handleSubmit}>
             <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={2}>
+                <TextField
+                  label="Order Date"
+                  type="date"
+                  fullWidth
+                  value={orderDate}
+                  onChange={(event) => setOrderDate(event.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
               <Grid item xs={12} md={3}>
                 <Autocomplete
                   options={agents}
@@ -368,17 +378,8 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                   />
                 )}
               </Grid>
-              <Grid item xs={12} md={2}>
-                <TextField
-                  label="Order Date"
-                  type="date"
-                  fullWidth
-                  value={orderDate}
-                  onChange={(event) => setOrderDate(event.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} md={2}>
+              
+              {/* <Grid item xs={12} md={2}>
                 <Button
                   variant="contained"
                   fullWidth
@@ -388,7 +389,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                 >
                   Search
                 </Button>
-              </Grid>
+              </Grid> */}
               <Grid item xs={12} md={2}>
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
@@ -397,7 +398,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                     sx={{ height: 56, minWidth: 56, px: 1 }}
                     aria-label="Add order"
                     disabled={!selectedAgentId || !selectedShop?.ShopId}
-                  >
+                  >  Order  
                     <AddCircleOutlineRoundedIcon />
                   </Button>
                 </Box>
@@ -406,7 +407,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                 <Grid item xs={12} md={1}>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Button variant="outlined" color="primary" onClick={openCreateShopDialog} disabled={!selectedAgentId} sx={{ height: 56, minWidth: 56, px: 1 }} aria-label="Add shop">
-                      +
+                     <AddCircleOutlineRoundedIcon/>  Shop 
                     </Button>
                   </Box>
                 </Grid>

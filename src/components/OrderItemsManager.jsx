@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -41,6 +41,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
   const [editItemId, setEditItemId] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [loading, setLoading] = useState(false);
+  const itemInputRef = useRef(null);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('jwtToken');
@@ -102,6 +103,12 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
       loadItems();
     }
   }, [open, order?.OrderId]);
+
+  useEffect(() => {
+    if (open && itemInputRef.current) {
+      itemInputRef.current.focus();
+    }
+  }, [open, selectedItem]);
 
   const itemLookup = useMemo(() => {
     return catalog.reduce((acc, item) => {
@@ -217,12 +224,13 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <Autocomplete
+                  autoFocus
                   options={catalog}
                   value={selectedItem}
                   getOptionLabel={(option) => option?.label || ''}
                   isOptionEqualToValue={(option, value) => option?.id === value?.id}
                   onChange={(_, value) => setSelectedItem(value)}
-                  renderInput={(params) => <TextField {...params} label="Item" required />}
+                  renderInput={(params) => <TextField {...params} inputRef={itemInputRef} label="Item" required />}
                 />
               </Grid>
               <Grid item xs={12} md={3}>
