@@ -134,7 +134,7 @@ app.post("/api/auth/login", (req, res) => {
 });
 
 app.get("/api/agents", authenticateToken, (req, res) => {
-  db.all("SELECT * FROM Agent ORDER BY AgentName", [], (err, rows) => {
+  db.all("SELECT a.AgentId, a.AgentName, COUNT(s.ShopId) AS ShopCount FROM Agent a LEFT JOIN Shop s ON a.AgentId = s.AgentId GROUP BY a.AgentId, a.AgentName ORDER BY a.AgentName", [], (err, rows) => {
     if (err) return res.status(400).json({ error: err.message });
     res.json(rows);
   });

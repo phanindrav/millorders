@@ -138,14 +138,19 @@ function AgentsPanel() {
                       <Typography variant="body2" color="text.secondary">
                         Agent ID: {agent.AgentId}
                       </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Shops: {agent.ShopCount || 0}
+                      </Typography>
                     </Box>
                     <Stack direction="row" spacing={1}>
                       <Button size="small" variant="outlined" startIcon={<EditRoundedIcon />} onClick={() => openEditDialog(agent)}>
                         Edit
                       </Button>
-                      <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDelete(agent)}>
-                        Delete
-                      </Button>
+                      {Number(agent.ShopCount || 0) === 0 && (
+                        <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDelete(agent)}>
+                          Delete
+                        </Button>
+                      )}
                     </Stack>
                   </Stack>
                 </Paper>
