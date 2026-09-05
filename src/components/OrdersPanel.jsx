@@ -159,11 +159,11 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
   );
 
   const filteredOrders = useMemo(() => {
-    const q = searchValue.trim().toLowerCase();
-    if (!q) return orders;
+    const searchTerms = searchValue.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (searchTerms.length === 0) return orders;
     return orders.filter((order) => {
-      const haystack = `${order.AgentName || ''} ${order.ShopName || ''} ${order.Place || ''} ${order.Items || ''}`.toLowerCase();
-      return haystack.includes(q);
+      const haystack = `${order.OrderId || ''} ${order.AgentName || ''} ${order.ShopName || ''} ${order.Place || ''} ${order.Address || ''} ${order.Items || ''}`.toLowerCase();
+      return searchTerms.every((term) => haystack.includes(term));
     });
   }, [orders, searchValue]);
 
@@ -296,10 +296,12 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
   const tableRows = filteredOrders.map((order, index) => ({
     id: order.OrderId || index,
     order: `${order.OrderId || '—'} • ${formatDate(order.Date)}`,
+    orderSortValue: `${order.Date || ''}-${order.OrderId || ''}`,
     agent: order.AgentName || '—',
     shop: <span style={{ fontWeight: 'bold' }}>
           {`${order.ShopName || '—'}${order.Place ? ` • ${order.Place}` : ''}`}
           </span>,
+    shopSortValue: `${order.ShopName || ''} ${order.Place || ''}`,
 
     quintals: order.TotalQuintals || '0',
     items: formatOrderItems(order.Items),
@@ -437,7 +439,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
       <Box sx={{ mt: 3 }}>
         <TextField
           label="Search orders"
-          placeholder="Search by shop or item"
+          placeholder="Search by order ID, agent, shop, address, or item"
           fullWidth
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
@@ -449,13 +451,14 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
           subtitle={loading ? 'Loading orders…' : 'Track daily operations and delivery updates'}
           rows={tableRows}
           columns={[
-            { key: 'order', label: 'Order' },
-            { key: 'agent', label: 'Agent' },
-            { key: 'shop', label: 'Shop' },
-            { key: 'quintals', label: 'Quintals' },
+            { key: 'order', label: 'Order', sortable: true, sortValue: (row) => row.orderSortValue },
+            { key: 'agent', label: 'Agent', sortable: true },
+            { key: 'shop', label: 'Shop', sortable: true, sortValue: (row) => row.shopSortValue },
+            { key: 'quintals', label: 'Quintals', sortable: true, sortValue: (row) => Number(row.quintals) || 0 },
             {
               key: 'items',
               label: 'Items',
+              sortable: true,
               render: (row) => (
                 <Box component="div" sx={{ whiteSpace: 'pre-line', lineHeight: 1.6, minWidth: 220 }}>
                   {row.items}

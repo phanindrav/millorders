@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Card,
@@ -11,10 +11,46 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Typography,
 } from '@mui/material';
 
 function DataTable({ title, subtitle, rows = [], columns = [] }) {
+  const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
+
+  const sortedRows = useMemo(() => {
+    if (!sortConfig.key) return rows;
+
+    const column = columns.find((item) => item.key === sortConfig.key);
+    if (!column?.sortable) return rows;
+
+    return [...rows].sort((firstRow, secondRow) => {
+      const firstValue = column.sortValue ? column.sortValue(firstRow) : firstRow[column.key];
+      const secondValue = column.sortValue ? column.sortValue(secondRow) : secondRow[column.key];
+
+      if (firstValue == null && secondValue == null) return 0;
+      if (firstValue == null) return 1;
+      if (secondValue == null) return -1;
+
+      const firstText = String(firstValue).toLowerCase();
+      const secondText = String(secondValue).toLowerCase();
+      const comparison = typeof firstValue === 'number' && typeof secondValue === 'number'
+        ? firstValue - secondValue
+        : firstText.localeCompare(secondText, undefined, { numeric: true });
+
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+  }, [columns, rows, sortConfig]);
+
+  const handleSort = (column) => {
+    if (!column.sortable) return;
+
+    setSortConfig((current) => ({
+      key: column.key,
+      direction: current.key === column.key && current.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
+
   return (
     <Card variant="outlined">
       <CardContent>
@@ -32,7 +68,17 @@ function DataTable({ title, subtitle, rows = [], columns = [] }) {
             <TableHead>
               <TableRow>
                 {columns.map((column) => (
-                  <TableCell key={column.key}>{column.label}</TableCell>
+                  <TableCell key={column.key} sortDirection={sortConfig.key === column.key ? sortConfig.direction : false}>
+                    {column.sortable ? (
+                      <TableSortLabel
+                        active={sortConfig.key === column.key}
+                        direction={sortConfig.key === column.key ? sortConfig.direction : 'asc'}
+                        onClick={() => handleSort(column)}
+                      >
+                        {column.label}
+                      </TableSortLabel>
+                    ) : column.label}
+                  </TableCell>
                 ))}
               </TableRow>
             </TableHead>
@@ -44,7 +90,7 @@ function DataTable({ title, subtitle, rows = [], columns = [] }) {
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((row, index) => (
+                sortedRows.map((row, index) => (
                   <TableRow key={row.id || index} hover>
                     {columns.map((column) => (
                       <TableCell key={column.key}>{column.render ? column.render(row) : row[column.key]}</TableCell>
