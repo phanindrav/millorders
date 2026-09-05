@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS Item (
     Name TEXT NOT NULL,
     Brand TEXT,
     Ord INTEGER DEFAULT 0,
-    Grp INTEGER DEFAULT 0
+    Grp INTEGER DEFAULT 0,
+    IsActive INTEGER NOT NULL DEFAULT 1
 );
 
 -- Shop table

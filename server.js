@@ -625,13 +625,12 @@ app.get("/api/agentsummary", (req, res) => {
 app.get("/api/items", (req, res) => {
 
     const sql = `
-        SELECT  
-           i.ItemId, r.RiceType Name, b.BrandName Brand, i.Ord, i.Grp, i.RiceId, i.BrandId, i.IsActive 
+        SELECT 
+           i.ItemId, r.RiceType Name, b.BrandName Brand, i.Ord, i.Grp, i.RiceId, i.BrandId, i.IsActive
         FROM Item i
-        JOIN Rice r ON i.RiceId = r.RiceId
-        JOIN Brand b ON i.BrandId = b.BrandId
-        Where i.IsActive = 1
-        Order by r.Odr, b.Odr
+        LEFT JOIN Rice r ON i.RiceId = r.RiceId
+        LEFT JOIN Brand b ON i.BrandId = b.BrandId
+        Order by i.IsActive desc, r.Odr, b.Odr
     `;
 
     db.all(sql, [], (err, rows) => {
@@ -657,10 +656,23 @@ app.get("/api/items/:id", authenticateToken, (req, res) => {
 
 app.post("/api/items", (req, res) => {
   const { Name, Brand } = req.body;
-  db.run("INSERT INTO Item (Name, Brand) VALUES (?,?)", [Name, Brand || null], function (err) {
+  db.run("INSERT INTO Item (Name, Brand, IsActive) VALUES (?,?,1)", [Name, Brand || null], function (err) {
     if (err) return res.status(400).json({ error: err.message });
-    res.json({ ItemId: this.lastID, Name, Brand });
+    res.json({ ItemId: this.lastID, Name, Brand, IsActive: 1 });
   });
+});
+
+app.patch("/api/items/:id/active", authenticateToken, (req, res) => {
+  const isActive = req.body.isActive ? 1 : 0;
+  db.run(
+    "UPDATE Item SET IsActive=? WHERE ItemId=?",
+    [isActive, req.params.id],
+    function (err) {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!this.changes) return res.status(404).json({ error: "Item not found" });
+      res.json({ ItemId: Number(req.params.id), IsActive: isActive });
+    }
+  );
 });
 
 app.put("/api/items/:id", authenticateToken, (req, res) => {

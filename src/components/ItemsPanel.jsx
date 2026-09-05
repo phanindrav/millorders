@@ -14,18 +14,16 @@ import {
   Paper,
   Snackbar,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
-import EditRoundedIcon from '@mui/icons-material/EditRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 
 function ItemsPanel() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState({ Name: '', Brand: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -59,43 +57,37 @@ function ItemsPanel() {
   }, [items, search]);
 
   const openCreateDialog = () => {
-    setEditingItem(null);
     setForm({ Name: '', Brand: '' });
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = (item) => {
-    setEditingItem(item);
-    setForm({ Name: item.Name || '', Brand: item.Brand || '' });
     setDialogOpen(true);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const url = editingItem ? `/api/items/${editingItem.ItemId}` : '/api/items';
-      const method = editingItem ? 'PUT' : 'POST';
-      const response = await fetch(url, {
-        method,
+      const response = await fetch(`${apiBase}/api/items`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(form),
       });
       if (!response.ok) throw new Error('Unable to save item.');
       await loadData();
       setDialogOpen(false);
-      setSnackbar({ open: true, message: editingItem ? 'Item updated.' : 'Item created.', severity: 'success' });
+      setSnackbar({ open: true, message: 'Item created.', severity: 'success' });
     } catch (error) {
       setSnackbar({ open: true, message: error.message, severity: 'error' });
     }
   };
 
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Delete ${item.Name}?`)) return;
+  const handleActiveChange = async (item, isActive) => {
     try {
-      const response = await fetch(`${apiBase}/api/items/${item.ItemId}`, { method: 'DELETE', headers: getAuthHeaders() });
-      if (!response.ok) throw new Error('Unable to delete item.');
+      const response = await fetch(`${apiBase}/api/items/${item.ItemId}/active`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ isActive }),
+      });
+      if (!response.ok) throw new Error('Unable to update item status.');
       await loadData();
-      setSnackbar({ open: true, message: 'Item deleted.', severity: 'success' });
+      setSnackbar({ open: true, message: `Item ${isActive ? 'activated' : 'deactivated'}.`, severity: 'success' });
     } catch (error) {
       setSnackbar({ open: true, message: error.message, severity: 'error' });
     }
@@ -134,18 +126,20 @@ function ItemsPanel() {
                 <Paper key={item.ItemId} variant="outlined" sx={{ p: 2 }}>
                   <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1.5}>
                     <Box>
-                      <Typography variant="subtitle1">{item.Name}</Typography>
+                      <Typography variant="subtitle1">{item.Name || '-'}  {item.Brand}</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Brand: {item.Brand || '—'} • Item ID: {item.ItemId}
+                         Item ID: {item.ItemId}
                       </Typography>
                     </Box>
-                    <Stack direction="row" spacing={1}>
-                      <Button size="small" variant="outlined" startIcon={<EditRoundedIcon />} onClick={() => openEditDialog(item)}>
-                        Edit
-                      </Button>
-                      <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDelete(item)}>
-                        Delete
-                      </Button>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body2" color={item.IsActive ? 'success.main' : 'text.secondary'}>
+                        {item.IsActive ? 'Active' : 'Inactive'}
+                      </Typography>
+                      <Switch
+                        checked={Boolean(item.IsActive)}
+                        onChange={(event) => handleActiveChange(item, event.target.checked)}
+                        inputProps={{ 'aria-label': `Set ${item.Name || 'item'} ${item.IsActive ? 'inactive' : 'active'}` }}
+                      />
                     </Stack>
                   </Stack>
                 </Paper>
@@ -156,7 +150,7 @@ function ItemsPanel() {
       </Card>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingItem ? 'Edit item' : 'Add item'}</DialogTitle>
+        <DialogTitle>Add item</DialogTitle>
         <DialogContent>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
             <Grid container spacing={2}>
