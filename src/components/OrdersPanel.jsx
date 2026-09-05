@@ -17,8 +17,10 @@ import {
   Stack,
   TextField,
   Typography,
+  Tooltip,
 } from '@mui/material';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
+import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import LocalShippingRoundedIcon from '@mui/icons-material/LocalShippingRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DataTable from './DataTable';
@@ -52,6 +54,7 @@ function formatOrderItems(value) {
 }
 
 const DELIVERY_DATE_STORAGE_KEY = 'millorders.lastDeliveryDate';
+const ALL_AGENTS_OPTION = { AgentId: 'all', AgentName: 'All agents' };
 
 function toDateInputValue(date) {
   const year = date.getFullYear();
@@ -118,7 +121,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
   };
 
   const loadShops = async (agentId) => {
-    if (!agentId) {
+    if (!agentId || agentId === 'all') {
       setShops([]);
       setSelectedShop(null);
       return;
@@ -144,14 +147,14 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
   }, [agents, selectedAgentId]);
 
   useEffect(() => {
-    if (selectedAgentId) {
-      loadShops(selectedAgentId);
-      loadOrders(selectedAgentId);
-    }
+    loadShops(selectedAgentId);
+    loadOrders(selectedAgentId);
   }, [selectedAgentId]);
 
   const selectedAgentOption = useMemo(
-    () => agents.find((agent) => String(agent.AgentId) === String(selectedAgentId)) || null,
+    () => selectedAgentId === 'all'
+      ? ALL_AGENTS_OPTION
+      : agents.find((agent) => String(agent.AgentId) === String(selectedAgentId)) || null,
     [agents, selectedAgentId]
   );
 
@@ -159,7 +162,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
     const q = searchValue.trim().toLowerCase();
     if (!q) return orders;
     return orders.filter((order) => {
-      const haystack = `${order.ShopName || ''} ${order.Place || ''} ${order.Items || ''}`.toLowerCase();
+      const haystack = `${order.AgentName || ''} ${order.ShopName || ''} ${order.Place || ''} ${order.Items || ''}`.toLowerCase();
       return haystack.includes(q);
     });
   }, [orders, searchValue]);
@@ -293,20 +296,29 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
   const tableRows = filteredOrders.map((order, index) => ({
     id: order.OrderId || index,
     order: `${order.OrderId || '—'} • ${formatDate(order.Date)}`,
-    shop: `${order.ShopName || '—'}${order.Place ? ` • ${order.Place}` : ''}`,
+    agent: order.AgentName || '—',
+    shop: <span style={{ fontWeight: 'bold' }}>
+          {`${order.ShopName || '—'}${order.Place ? ` • ${order.Place}` : ''}`}
+          </span>,
+
     quintals: order.TotalQuintals || '0',
     items: formatOrderItems(order.Items),
     actions: (
       <Stack direction="row" spacing={1}>
-        <Button size="small" variant="outlined" color="primary" onClick={() => openItemsDialog(order)}>
-          Manage items
-        </Button>
-        <Button size="small" variant="outlined" color="primary" onClick={() => openDeliveryDialog(order.OrderId)}>
-          <LocalShippingRoundedIcon fontSize="small" />
-        </Button>
-        <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(order.OrderId)}>
-          <DeleteOutlineRoundedIcon fontSize="small" />
-        </Button>
+        <Tooltip title="Manage order items">
+          <Button size="small" variant="outlined" color="primary" onClick={() => openItemsDialog(order)} startIcon={<Inventory2RoundedIcon />}>
+          </Button>
+        </Tooltip>
+        <Tooltip title="Set delivery date">
+          <Button size="small" variant="outlined" color="primary" onClick={() => openDeliveryDialog(order.OrderId)} aria-label="Set delivery date">
+            <LocalShippingRoundedIcon fontSize="small" />
+          </Button>
+        </Tooltip>
+        <Tooltip title="Delete order">
+          <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(order.OrderId)} aria-label="Delete order">
+            <DeleteOutlineRoundedIcon fontSize="small" />
+          </Button>
+        </Tooltip>
       </Stack>
     ),
   }));
@@ -343,7 +355,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
               </Grid>
               <Grid item xs={12} md={3}>
                 <Autocomplete
-                  options={agents}
+                  options={[ALL_AGENTS_OPTION, ...agents]}
                   value={selectedAgentOption}
                   getOptionLabel={(option) => option?.AgentName || ''}
                   isOptionEqualToValue={(option, value) => String(option.AgentId) === String(value?.AgentId)}
@@ -397,13 +409,13 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                     variant="contained"
                     sx={{ height: 56, minWidth: 56, px: 1 }}
                     aria-label="Add order"
-                    disabled={!selectedAgentId || !selectedShop?.ShopId}
+                    disabled={!selectedAgentId || selectedAgentId === 'all' || !selectedShop?.ShopId}
                   >  Order  
                     <AddCircleOutlineRoundedIcon />
                   </Button>
                 </Box>
               </Grid>
-              {selectedAgentId ? (
+              {selectedAgentId && selectedAgentId !== 'all' ? (
                 <Grid item xs={12} md={1}>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Button variant="outlined" color="primary" onClick={openCreateShopDialog} disabled={!selectedAgentId} sx={{ height: 56, minWidth: 56, px: 1 }} aria-label="Add shop">
@@ -438,6 +450,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
           rows={tableRows}
           columns={[
             { key: 'order', label: 'Order' },
+            { key: 'agent', label: 'Agent' },
             { key: 'shop', label: 'Shop' },
             { key: 'quintals', label: 'Quintals' },
             {

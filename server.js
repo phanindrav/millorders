@@ -746,16 +746,17 @@ app.delete("/api/shops/:id", authenticateToken, (req, res) => {
 
 // Get Orders
 app.get("/api/orders/:agentId", authenticateToken, (req, res) => {
+  const isAllAgents = req.params.agentId === "all";
   const sql = `
     SELECT 
       o.OrderId, 
       o.Date, 
       a.AgentName, 
-      s.ShopName, 
-      s.Place,
-      s.Address,
-      s.GST, 
-      s.PhoneNumber, 
+      sh.ShopName,
+      sh.Place,
+      sh.Address,
+      sh.GST,
+      sh.PhoneNumber,
       COUNT(oi.ItemId) AS Items,
       r.RiceType as ItemName,
       b.BrandName as Brand,
@@ -775,19 +776,20 @@ app.get("/api/orders/:agentId", authenticateToken, (req, res) => {
           '\n'
       ) AS Items
     FROM Orders o
-    LEFT JOIN Shop s ON o.ShopId = s.ShopId
-    LEFT JOIN Agent a ON s.AgentId = a.AgentId
+    LEFT JOIN Shop sh ON o.ShopId = sh.ShopId
+    LEFT JOIN Agent a ON sh.AgentId = a.AgentId
     LEFT JOIN OrderItem oi ON oi.OrderId = o.OrderId
     LEFT JOIN Item i ON i.ItemId = oi.ItemId
     LEFT JOIN Rice r ON r.RiceId = i.RiceId
     LEFT JOIN Brand b ON i.BrandId = b.BrandId
-    LEFT JOIN Status s ON s.StatusId = oi.StatusId
-        WHERE s.AgentId = ? AND o.DeliveryDate IS NULL
+    LEFT JOIN Status st ON st.StatusId = oi.StatusId
+      WHERE o.DeliveryDate IS NULL
+      ${isAllAgents ? "" : "AND sh.AgentId = ?"}
     GROUP BY o.OrderId
     ORDER BY o.OrderId DESC;
   `;
 
-    db.all(sql, [req.params.agentId], (err, orders) => {
+    db.all(sql, isAllAgents ? [] : [req.params.agentId], (err, orders) => {
     if (err) return res.status(400).json({ error: err.message });
     res.json(orders);
   });
