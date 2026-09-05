@@ -226,21 +226,21 @@ function ReportsPanel() {
     agentReport.forEach((row) => {
       const item = row.ItemName || '—';
       const brand = row.Brand || '—';
-      const key = `${item}::${brand}`;
+      const kgs = Number(row.Kgs || 0);
+      const key = `${item}::${brand}::${kgs}`;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
           item,
           brand,
+          kgs,
           bags: 0,
-          kgs: 0,
           quintals: 0,
         });
       }
 
       const entry = grouped.get(key);
       entry.bags += Number(row.Bags || 0);
-      entry.kgs += Number(row.Kgs || 0);
       entry.quintals += Number(row.Quintals || 0);
     });
 
@@ -359,6 +359,13 @@ function ReportsPanel() {
             .summary-title {
               margin-bottom: 18px;
             }
+            .item-summary {
+              page-break-after: always;
+            }
+            .brand-summary {
+              page-break-before: always;
+              page-break-inside: avoid;
+            }
             table {
               width: 100%;
               border-collapse: collapse;
@@ -386,34 +393,38 @@ function ReportsPanel() {
             <div class="muted">${currentAgentName}</div>
           </div>
 
-          <h3>Item Summary</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th style="text-align:right;">Quintals</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemRows}
-            </tbody>
-          </table>
+          <section class="item-summary">
+            <h3>Item Summary</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th style="text-align:right;">Quintals</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemRows}
+              </tbody>
+            </table>
+          </section>
 
-          <h3>Brand-wise Breakdown</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Brand</th>
-                <th style="text-align:right;">Kgs</th>
-                <th style="text-align:right;">Total Bags</th>
-                <th style="text-align:right;">Quintals</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${brandRows}
-            </tbody>
-          </table>
+          <section class="brand-summary">
+            <h3>Brand-wise Breakdown</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Brand</th>
+                  <th style="text-align:right;">Kgs</th>
+                  <th style="text-align:right;">Total Bags</th>
+                  <th style="text-align:right;">Quintals</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${brandRows}
+              </tbody>
+            </table>
+          </section>
         </body>
       </html>
     `);
@@ -1296,8 +1307,8 @@ function ReportsPanel() {
               <Card variant="outlined" sx={{ mb: 2, maxWidth: 900, mx: 'auto' }}>
                 <CardContent>
                   <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>Item summary</Typography>
-                  <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 280, overflow: 'auto', '& .MuiTableCell-root': { px: 1.25, py: 0.75, fontSize: '0.8rem' } }}>
-                    <Table size="small" stickyHeader>
+                  <TableContainer component={Paper} variant="outlined" sx={{ '& .MuiTableCell-root': { px: 1.25, py: 0.75, fontSize: '0.8rem' } }}>
+                    <Table size="small">
                       <TableHead>
                         <TableRow>
                           <TableCell>Item</TableCell>
@@ -1358,7 +1369,7 @@ function ReportsPanel() {
                         ) : (
                           <>
                             {agentBrandSummaryRows.map((row, index) => (
-                              <TableRow key={`${row.item}-${row.brand}-${index}`} hover>
+                              <TableRow key={`${row.item}-${row.brand}-${row.kgs}-${index}`} hover>
                                 {row.showItem ? (
                                   <TableCell rowSpan={row.itemRowSpan} sx={{ verticalAlign: 'top', fontWeight: 600 }}>
                                     {row.item}
