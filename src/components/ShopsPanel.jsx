@@ -61,7 +61,7 @@ function ShopsPanel() {
   const filteredShops = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return shops;
-    return shops.filter((shop) => `${shop.ShopName || ''} ${shop.Place || ''} ${shop.AgentName || ''}`.toLowerCase().includes(q));
+    return shops.filter((shop) => `${shop.ShopName || ''} ${shop.AgentName || ''} ${shop.Address || ''}`.toLowerCase().includes(q));
   }, [shops, search]);
 
   const openCreateDialog = () => {
@@ -130,7 +130,7 @@ function ShopsPanel() {
 
       <Card variant="outlined">
         <CardContent>
-          <TextField label="Search shops" fullWidth value={search} onChange={(event) => setSearch(event.target.value)} sx={{ mb: 2 }} />
+          <TextField label="Search by agent, shop, or address" fullWidth value={search} onChange={(event) => setSearch(event.target.value)} sx={{ mb: 2 }} />
           <Stack spacing={1.5}>
             {filteredShops.map((shop) => (
               <Paper key={shop.ShopId} variant="outlined" sx={{ p: 2 }}>
