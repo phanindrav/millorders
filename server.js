@@ -762,6 +762,7 @@ app.get("/api/orders/:agentId", authenticateToken, (req, res) => {
       b.BrandName as Brand,
       oi.Bags,
       oi.Kgs,
+      ROUND(SUM(oi.Bags), 2) as TotalBags,
       ROUND(oi.Bags * oi.Kgs / 100,2) as Quintals,
       oi.Rate,
       oi.Condition,

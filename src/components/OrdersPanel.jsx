@@ -81,7 +81,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
   const [searchValue, setSearchValue] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
-  const [deliveryOrderId, setDeliveryOrderId] = useState(null);
+  const [deliveryOrder, setDeliveryOrder] = useState(null);
   const [deliveryDate, setDeliveryDate] = useState(() => {
     const savedDate = localStorage.getItem(DELIVERY_DATE_STORAGE_KEY);
     return savedDate || getTodayString();
@@ -261,8 +261,8 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
     setItemsDialogOpen(true);
   };
 
-  const openDeliveryDialog = (orderId) => {
-    setDeliveryOrderId(orderId);
+  const openDeliveryDialog = (order) => {
+    setDeliveryOrder(order);
     const savedDate = localStorage.getItem(DELIVERY_DATE_STORAGE_KEY) || getTodayString();
     setDeliveryDate(savedDate);
     setDeliveryDialogOpen(true);
@@ -275,10 +275,10 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
   };
 
   const handleDeliveryUpdate = async () => {
-    if (!deliveryOrderId) return;
+    if (!deliveryOrder?.OrderId) return;
 
     try {
-      const response = await fetch(`${apiBase}/api/orders/${deliveryOrderId}/delivery`, {
+      const response = await fetch(`${apiBase}/api/orders/${deliveryOrder.OrderId}/delivery`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ DeliveryDate: deliveryDate }),
@@ -310,7 +310,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
           </Button>
         </Tooltip>
         <Tooltip title="Set delivery date">
-          <Button size="small" variant="outlined" color="primary" onClick={() => openDeliveryDialog(order.OrderId)} aria-label="Set delivery date">
+          <Button size="small" variant="outlined" color="primary" onClick={() => openDeliveryDialog(order)} aria-label="Set delivery date">
             <LocalShippingRoundedIcon fontSize="small" />
           </Button>
         </Tooltip>
@@ -503,9 +503,32 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deliveryDialogOpen} onClose={() => setDeliveryDialogOpen(false)}>
+      <Dialog open={deliveryDialogOpen} onClose={() => setDeliveryDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Set delivery date</DialogTitle>
         <DialogContent>
+          {deliveryOrder ? (
+            <Card variant="outlined" sx={{ mt: 1, mb: 2 }}>
+              <CardContent sx={{ '&:last-child': { pb: 2 } }}>
+                <Typography variant="subtitle1" fontWeight={700}>
+                  {deliveryOrder.ShopName || 'Shop not available'}
+                  {deliveryOrder.Place ? ` • ${deliveryOrder.Place}` : ''}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Order #{deliveryOrder.OrderId}
+                </Typography>
+                <Box sx={{ mt: 1.5, whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+                  <Typography variant="body2" fontWeight={600}>Items</Typography>
+                  <Typography variant="body2">{formatOrderItems(deliveryOrder.Items)}</Typography>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1.5 }}>
+                  <Chip size="small" label={`Items ${deliveryOrder.Items || 0}`} />
+                  <Chip size="small" label={`Bags ${deliveryOrder.TotalBags || 0}`} />
+                  <Chip size="small" color="primary" variant="outlined" label={`Qtls ${deliveryOrder.TotalQuintals || 0}`} />
+                  <Chip size="small" color="success" variant="outlined" label={`Total ₹${Number(deliveryOrder.TotalAmount || 0).toLocaleString('en-IN')}`} />
+                </Stack>
+              </CardContent>
+            </Card>
+          ) : null}
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
             <Button variant="outlined" size="small" onClick={() => changeDeliveryDate(-1)} aria-label="Previous day">
               {'<'}
