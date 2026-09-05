@@ -141,12 +141,14 @@ function ShopsPanel() {
                       {shop.Place || '—'} • {shop.Address || '—'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Agent: {shop.AgentName || 'Unassigned'} • Phone: {shop.PhoneNumber || '—'} • GST: {shop.GST || '—'}
+                      Agent: {shop.AgentName || 'Unassigned'} • Phone: {shop.PhoneNumber || '—'} • GST: {shop.GST || '—'} • Orders: {shop.PendingOrders || 0}
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={1}>
                     <Button size="small" variant="outlined" startIcon={<EditRoundedIcon />} onClick={() => openEditDialog(shop)}>Edit</Button>
-                    <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDelete(shop)}>Delete</Button>
+                    {Number(shop.PendingOrders || 0) === 0 && (
+                      <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDelete(shop)}>Delete</Button>
+                    )}
                   </Stack>
                 </Stack>
               </Paper>

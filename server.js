@@ -687,9 +687,11 @@ app.delete("/api/items/:id", authenticateToken, (req, res) => {
 app.get("/api/shops", authenticateToken, (req, res) => {
   const sql = `
     SELECT s.ShopId, s.ShopName, s.Place, s.Address, s.PhoneNumber, s.GST,
-           s.AgentId, a.AgentName
+           s.AgentId, a.AgentName, COUNT(o.OrderId) AS PendingOrders
     FROM Shop s
     LEFT JOIN Agent a ON a.AgentId = s.AgentId
+    LEFT JOIN Orders o ON o.ShopId = s.ShopId AND o.DeliveryDate IS NULL
+    GROUP BY s.ShopId
     ORDER BY s.ShopName
   `;
   db.all(sql, [], (err, rows) => {
