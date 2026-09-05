@@ -27,6 +27,19 @@ const defaultStatuses = [
   { StatusId: 3, Status: 'Completed' },
 ];
 
+const normalizeSearchText = (value) => String(value || '').toLowerCase().trim();
+
+const filterCatalogOptions = (options, { inputValue }) => {
+  const searchTerms = normalizeSearchText(inputValue).split(/\s+/).filter(Boolean);
+
+  if (!searchTerms.length) return options;
+
+  return options.filter((option) => {
+    const words = normalizeSearchText(option.label).split(/\s+/).filter(Boolean);
+    return searchTerms.every((term) => words.some((word) => word.startsWith(term)));
+  });
+};
+
 function OrderItemsManager({ order, open, onClose, onRefresh }) {
   const [items, setItems] = useState([]);
   const [catalog, setCatalog] = useState([]);
@@ -227,6 +240,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                   autoFocus
                   options={catalog}
                   value={selectedItem}
+                  filterOptions={filterCatalogOptions}
                   getOptionLabel={(option) => option?.label || ''}
                   isOptionEqualToValue={(option, value) => option?.id === value?.id}
                   onChange={(_, value) => setSelectedItem(value)}

@@ -631,7 +631,7 @@ app.get("/api/items", (req, res) => {
         JOIN Rice r ON i.RiceId = r.RiceId
         JOIN Brand b ON i.BrandId = b.BrandId
         Where i.IsActive = 1
-        Order by r.TypeId, r.Odr
+        Order by r.Odr, b.Odr
     `;
 
     db.all(sql, [], (err, rows) => {
