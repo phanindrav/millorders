@@ -107,7 +107,10 @@ function ReportsPanel() {
     try {
       const response = await fetch(`${apiBase}/api/reports/item-summary/${agentId}`, { headers: getAuthHeaders() });
       const data = await response.json();
-      setItemSummary(Array.isArray(data.summary) ? data.summary : []);
+      const summaryRows = Array.isArray(data.summary) ? data.summary : [];
+      setItemSummary(
+        summaryRows.sort((a, b) => Number(b.Quintals || 0) - Number(a.Quintals || 0))
+      );
       setItemDetails(Array.isArray(data.details) ? data.details : []);
     } catch (error) {
       setSnackbar({ open: true, message: 'Unable to load item summary.', severity: 'error' });
@@ -1311,8 +1314,8 @@ function ReportsPanel() {
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell>Item</TableCell>
-                          <TableCell align="right">Quintals</TableCell>
+                          <TableCell width="20%">Item</TableCell>
+                          <TableCell width="20%" align="right">Quintals</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>

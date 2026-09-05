@@ -18,6 +18,7 @@ import {
   TableHead,
   TableRow,
   Toolbar,
+  TextField,
   Typography,
 } from '@mui/material';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
@@ -65,6 +66,7 @@ function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('overview');
+  const [agentSearch, setAgentSearch] = useState('');
   const [auth, setAuth] = useState(() => {
     const token = localStorage.getItem('jwtToken');
     const user = localStorage.getItem('authUser');
@@ -104,8 +106,12 @@ function App() {
         setShops(shopsData || []);
         setItems(itemsData || []);
         setOrders(ordersData || []);
-        setRiceSummary(riceSummaryData || []);
-        setBrandSummary(brandSummaryData || []);
+        setRiceSummary(
+          (riceSummaryData || []).sort((a, b) => Number(b.Quintals || 0) - Number(a.Quintals || 0))
+        );
+        setBrandSummary(
+          (brandSummaryData || []).sort((a, b) => Number(b.Quintals || 0) - Number(a.Quintals || 0))
+        );
         setAgentSummary(agentSummaryData || []);
       } catch (error) {
         console.error('Failed to load dashboard data', error);
@@ -160,6 +166,15 @@ function App() {
     (sum, row) => sum + Number(row.Quintals || 0),
     0
   );
+
+  const filteredAgentSummary = useMemo(() => {
+    const searchTerm = agentSearch.trim().toLowerCase();
+    if (!searchTerm) return agentSummary;
+
+    return agentSummary.filter((agent) =>
+      String(agent.agentName || '').toLowerCase().includes(searchTerm)
+    );
+  }, [agentSummary, agentSearch]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -474,7 +489,16 @@ function App() {
                   </TableContainer>
                 </CardContent>
               </Card>
-            </Grid>
+              </Grid>
+            <Box sx={{ p: 2 }}>
+                    <TextField
+                      label="Search agent name"
+                      value={agentSearch}
+                      onChange={(event) => setAgentSearch(event.target.value)}
+                      size="small"
+                      fullWidth
+                    />
+                  </Box>
             <Grid item xs={12}>
               <Card
                 elevation={6}
@@ -507,6 +531,7 @@ function App() {
                 </Box>
 
                 <CardContent sx={{ p: 0 }}>
+                  
                   <TableContainer>
                     <Table size="small">
 
@@ -523,15 +548,15 @@ function App() {
 
                       <TableBody>
 
-                        {agentSummary.length === 0 ? (
+                        {filteredAgentSummary.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={6} align="center">
-                              No pending orders {agentSummary.length}
+                              {agentSearch.trim() ? 'No agents match your search.' : 'No pending orders'}
                             </TableCell>
                           </TableRow>
                         ) : (
 
-                          agentSummary.map(agent => {
+                          filteredAgentSummary.map(agent => {
 
                             const agentRows = agent.rice.reduce(
                               (sum, rice) => sum + rice.brands.length,
@@ -639,7 +664,7 @@ function App() {
 
                           <TableCell align="right">
                             {formatNumber(
-                              agentSummary.reduce(
+                              filteredAgentSummary.reduce(
                                 (sum, a) => sum + a.quintals,
                                 0
                               )

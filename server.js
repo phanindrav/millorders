@@ -211,7 +211,7 @@ app.get('/api/reports/item-summary/:agentId', authenticateToken, (req, res) => {
     WHERE st.StatusId IN (1,2) AND o.DeliveryDate IS NULL
     ${!isAll ? 'AND s.AgentId = ?' : ''}
     GROUP BY r.RiceId, b.BrandId
-    ORDER BY r.RiceType, b.BrandName
+    ORDER BY Quintals DESC, r.RiceType, b.BrandName
   `;
 
   const detailSql = `
