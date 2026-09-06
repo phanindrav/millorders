@@ -31,6 +31,7 @@ import SidebarNavigation from './components/SidebarNavigation';
 import StatCard from './components/StatCard';
 import DataTable from './components/DataTable';
 import OrdersPanel from './components/OrdersPanel';
+import DeliveredOrdersPanel from './components/DeliveredOrdersPanel';
 import ShopsPanel from './components/ShopsPanel';
 import AgentsPanel from './components/AgentsPanel';
 import ItemsPanel from './components/ItemsPanel';
@@ -202,6 +203,9 @@ function App() {
             </Button>
             <Button variant={activeView === 'orders' ? 'contained' : 'outlined'} color="primary" onClick={() => setActiveView('orders')}>
               Orders
+            </Button>
+            <Button variant={activeView === 'delivered' ? 'contained' : 'outlined'} color="primary" onClick={() => setActiveView('delivered')}>
+              Delivered
             </Button>
             <Button variant={activeView === 'agents' ? 'contained' : 'outlined'} color="primary" onClick={() => setActiveView('agents')}>
               Agents
@@ -682,6 +686,8 @@ function App() {
           </Grid>
         ) : activeView === 'orders' ? (
           <OrdersPanel agents={agents} initialAgentId={agents[0]?.AgentId || ''} />
+        ) : activeView === 'delivered' ? (
+          <DeliveredOrdersPanel />
         ) : activeView === 'agents' ? (
           <AgentsPanel />
         ) : activeView === 'items' ? (

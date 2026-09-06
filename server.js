@@ -897,6 +897,24 @@ app.put("/api/orders/:id/delivery", authenticateToken, (req, res) => {
   });
 });
 
+// Clear DeliveryDate so an order returns to the undelivered list
+app.delete("/api/orders/:id/delivery", authenticateToken, (req, res) => {
+  const orderId = req.params.id;
+
+  db.run("UPDATE Orders SET DeliveryDate = NULL WHERE OrderId = ?", [orderId], function (err) {
+    if (err) {
+      console.error("Error clearing DeliveryDate:", err);
+      return res.status(500).json({ error: "Failed to clear DeliveryDate" });
+    }
+
+    if (this.changes === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    res.json({ message: "DeliveryDate cleared successfully" });
+  });
+});
+
 app.post("/api/items", (req, res) => {
   const { Name, Brand } = req.body;
   db.run("INSERT INTO Item (Name, Brand) VALUES (?,?)", [Name, Brand || null], function (err) {

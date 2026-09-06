@@ -17,6 +17,7 @@ import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded';
+import LocalShippingRoundedIcon from '@mui/icons-material/LocalShippingRounded';
 
 const navigationItems = [
   { label: 'Overview', icon: DashboardRoundedIcon, key: 'overview' },
@@ -24,6 +25,7 @@ const navigationItems = [
   { label: 'Shops', icon: StorefrontRoundedIcon, key: 'shops' },
   { label: 'Items', icon: Inventory2RoundedIcon, key: 'items' },
   { label: 'Orders', icon: ReceiptLongRoundedIcon, key: 'orders' },
+  { label: 'Delivered', icon: LocalShippingRoundedIcon, key: 'delivered' },
   { label: 'Reports', icon: AssessmentRoundedIcon, key: 'reports' },
 ];
 
