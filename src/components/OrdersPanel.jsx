@@ -470,6 +470,40 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
         />
       </Box>
 
+      <Box sx={{ mt: 3 }}>
+        <TextField
+          label="Search orders"
+          placeholder="Search by order ID, agent, shop, address, or item"
+          fullWidth
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
+          sx={{ mb: 2 }}
+        />
+
+        <DataTable
+          title="Orders"
+          subtitle={loading ? 'Loading orders…' : 'Track daily operations and delivery updates'}
+          rows={tableRows}
+          columns={[
+            { key: 'order', label: 'Order', sortable: true, sortValue: (row) => row.orderSortValue },
+            { key: 'agent', label: 'Agent', sortable: true },
+            { key: 'shop', label: 'Shop', sortable: true, sortValue: (row) => row.shopSortValue },
+            { key: 'quintals', label: 'Quintals', sortable: true, sortValue: (row) => Number(row.quintals) || 0 },
+            {
+              key: 'items',
+              label: 'Items',
+              sortable: true,
+              render: (row) => (
+                <Box component="div" sx={{ whiteSpace: 'pre-line', lineHeight: 1.6, minWidth: 220 }}>
+                  {row.items}
+                </Box>
+              ),
+            },
+            { key: 'actions', label: 'Actions' },
+          ]}
+        />
+      </Box>
+
       <OrderItemsManager
         order={selectedOrder}
         open={itemsDialogOpen}
