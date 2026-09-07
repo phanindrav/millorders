@@ -355,7 +355,7 @@ function ReportsPanel() {
             `
       : `
           <tr>
-            <td colspan="5" style="text-align:center; padding: 18px;">No brand-wise breakdown available.</td>
+            <td colspan="5" style="text-align:center; padding: 18px;">No Brand-wise Summary available.</td>
           </tr>
         `;
 
@@ -363,7 +363,7 @@ function ReportsPanel() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Agent Activity Summary</title>
+          <title>Orders Summary</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -406,7 +406,7 @@ function ReportsPanel() {
         </head>
         <body>
           <div class="summary-title">
-            <h2>Agent Activity Summary</h2>
+            <h2>Orders Summary</h2>
             <div class="muted">${currentAgentName}</div>
           </div>
 
@@ -426,7 +426,7 @@ function ReportsPanel() {
           </section>
 
           <section class="brand-summary">
-            <h3>Brand-wise Breakdown</h3>
+            <h3>Brand-wise Summary</h3>
             <table>
               <thead>
                 <tr>
@@ -467,16 +467,16 @@ function ReportsPanel() {
       ? agentBrandSummaryRows
           .map((row) => `${row.item || '—'} / ${row.brand || '—'} = Kgs ${formatNumber(row.kgs)} | Bags ${row.bags || 0} | Qtl ${formatNumber(row.quintals)}`)
           .join('\n') + `\nGrand Total: Kgs ${formatNumber(agentBrandGrandTotal.kgs)} | Bags ${agentBrandGrandTotal.bags} | Qtl ${formatNumber(agentBrandGrandTotal.quintals)}`
-      : 'No brand-wise breakdown available.';
+      : 'No Brand-wise Summary available.';
 
     const message = [
-      'Agent Activity Summary',
+      'Orders Summary',
       `Agent: ${currentAgentName}`,
       '',
       'Item Summary',
       itemSummaryText,
       '',
-      'Brand-wise Breakdown',
+      'Brand-wise Summary',
       brandSummaryText,
     ].join('\n');
 
@@ -751,7 +751,7 @@ function ReportsPanel() {
               .join('');
 
             return `
-              <div style="margin-bottom:10px;">
+              <div class="agent-section" style="margin-bottom:10px;">
                 <h3 style="margin:0 0 6px 0; line-height:1.2;">${section.agentName}</h3>
                 <table style="width:100%; border-collapse:collapse; margin:0 0 8px 0; font-size:10px;">
                   <thead>
@@ -799,12 +799,19 @@ function ReportsPanel() {
             .header {
               margin-bottom: 10px;
             }
+            .agent-section {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
             table {
               width: 100%;
               border-collapse: collapse;
               margin: 0 0 8px 0;
-              page-break-inside: avoid;
+              page-break-inside: auto;
               font-size: 10px;
+            }
+            thead {
+              display: table-header-group;
             }
             th, td {
               border: 1px solid #333;
@@ -1323,7 +1330,7 @@ function ReportsPanel() {
           <CardContent>
             <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={2} sx={{ mb: 2 }}>
               <Box>
-                <Typography variant="h6">Agent activity summary</Typography>
+                <Typography variant="h6">Orders summary</Typography>
                 <Typography variant="body2" color="text.secondary">Item totals and brand-wise quantity summary</Typography>
               </Box>
               <Stack direction="row" spacing={1}>
@@ -1374,7 +1381,7 @@ function ReportsPanel() {
               <Card variant="outlined" sx={{ maxWidth: 900, mx: 'auto' }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Brand-wise breakdown</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Brand-wise Summary</Typography>
                     <Button variant="outlined" size="small" onClick={handleCaptureBrandSummary}>Capture table</Button>
                   </Stack>
                   <TableContainer component={Paper} variant="outlined" ref={brandSummaryTableRef} sx={{ '& .MuiTableCell-root': { px: 1.25, py: 0.75, fontSize: '0.8rem' } }}>
@@ -1392,7 +1399,7 @@ function ReportsPanel() {
                         {agentBrandSummaryRows.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                              No brand-wise breakdown available.
+                              No Brand-wise Summary available.
                             </TableCell>
                           </TableRow>
                         ) : (

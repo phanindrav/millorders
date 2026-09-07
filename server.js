@@ -784,12 +784,73 @@ app.get("/api/orders/:agentId", authenticateToken, (req, res) => {
       ROUND(SUM((oi.Bags * oi.Kgs / 100) * oi.Rate), 0) AS TotalAmount,
       GROUP_CONCAT(
           r.RiceType || ' ' || b.BrandName || ', ' ||
-          printf('%g', oi.Bags) || ' bags - ' ||
-          printf('%g', oi.Kgs) || ' kgs - ' ||
+          printf('%g', oi.Bags) || ' *' ||
+          printf('%g', oi.Kgs) || ' kgs : ' ||
           printf('%.2f', oi.Bags * oi.Kgs / 100) || ' qtls - ₹' ||
           printf('%g', oi.Rate),
           '\n'
       ) AS Items
+    FROM Orders o
+    LEFT JOIN Shop sh ON o.ShopId = sh.ShopId
+    LEFT JOIN Agent a ON sh.AgentId = a.AgentId
+    LEFT JOIN OrderItem oi ON oi.OrderId = o.OrderId
+    LEFT JOIN Item i ON i.ItemId = oi.ItemId
+    LEFT JOIN Rice r ON r.RiceId = i.RiceId
+    LEFT JOIN Brand b ON i.BrandId = b.BrandId
+    LEFT JOIN Status st ON st.StatusId = oi.StatusId
+      WHERE o.DeliveryDate IS NULL
+      ${isAllAgents ? "" : "AND sh.AgentId = ?"}
+    GROUP BY o.OrderId
+    ORDER BY o.OrderId DESC;
+  `;
+
+    db.all(sql, isAllAgents ? [] : [req.params.agentId], (err, orders) => {
+    if (err) return res.status(400).json({ error: err.message });
+    res.json(orders);
+  });
+});
+
+app.get("/api/orders1/:agentId", authenticateToken, (req, res) => {
+  const isAllAgents = req.params.agentId === "all";
+  const sql = `
+    SELECT 
+      o.OrderId, 
+      o.Date, 
+      a.AgentName, 
+      sh.ShopName,
+      sh.Place,
+      sh.Address,
+      sh.GST,
+      sh.PhoneNumber,
+      COUNT(oi.ItemId) AS TotalItems,
+      ROUND(SUM(oi.Bags), 2) as TotalBags,
+      ROUND( SUM(oi.Bags * oi.Kgs / 100 ), 2) AS TotalQuintals,
+      ROUND(SUM((oi.Bags * oi.Kgs / 100) * oi.Rate), 0) AS TotalAmount      
+    FROM Orders o
+    LEFT JOIN Shop sh ON o.ShopId = sh.ShopId
+    LEFT JOIN Agent a ON sh.AgentId = a.AgentId
+    LEFT JOIN OrderItem oi ON oi.OrderId = o.OrderId
+    LEFT JOIN Item i ON i.ItemId = oi.ItemId
+    LEFT JOIN Rice r ON r.RiceId = i.RiceId
+    LEFT JOIN Brand b ON i.BrandId = b.BrandId
+    LEFT JOIN Status st ON st.StatusId = oi.StatusId
+      WHERE o.DeliveryDate IS NULL
+      ${isAllAgents ? "" : "AND sh.AgentId = ?"}
+    GROUP BY o.OrderId
+    ORDER BY o.OrderId DESC;
+  `;
+
+  const sql1 = `
+    SELECT 
+      o.OrderId, 
+      r.RiceType as ItemName,
+      b.BrandName as Brand,
+      oi.Bags,
+      oi.Kgs,
+      oi.Rate,
+      oi.Condition,
+      ROUND( (oi.Bags * oi.Kgs / 100 ), 2) AS TotalQuintals,
+      ROUND(((oi.Bags * oi.Kgs / 100) * oi.Rate), 0) AS TotalAmount      
     FROM Orders o
     LEFT JOIN Shop sh ON o.ShopId = sh.ShopId
     LEFT JOIN Agent a ON sh.AgentId = a.AgentId

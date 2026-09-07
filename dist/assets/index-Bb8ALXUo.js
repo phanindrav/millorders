@@ -150,7 +150,7 @@ Error generating stack: `+e.message+`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Agent Activity Summary</title>
+          <title>Orders</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -244,7 +244,7 @@ Error generating stack: `+e.message+`
                     <td style="text-align:right; font-size:10px;">${n.Rate||0}</td>
                   </tr>
                 `}).join(``);return`
-              <div style="margin-bottom:10px;">
+              <div class="agent-section" style="margin-bottom:10px;">
                 <h3 style="margin:0 0 6px 0; line-height:1.2;">${e.agentName}</h3>
                 <table style="width:100%; border-collapse:collapse; margin:0 0 8px 0; font-size:10px;">
                   <thead>
@@ -287,12 +287,19 @@ Error generating stack: `+e.message+`
             .header {
               margin-bottom: 10px;
             }
+            .agent-section {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
             table {
               width: 100%;
               border-collapse: collapse;
               margin: 0 0 8px 0;
-              page-break-inside: avoid;
+              page-break-inside: auto;
               font-size: 10px;
+            }
+            thead {
+              display: table-header-group;
             }
             th, td {
               border: 1px solid #333;

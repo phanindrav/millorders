@@ -302,10 +302,14 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
     order: `${order.OrderId || '—'} • ${formatDate(order.Date)}`,
     orderSortValue: `${order.Date || ''}-${order.OrderId || ''}`,
     agent: order.AgentName || '—',
-    shop: <span style={{ fontWeight: 'bold' }}>
-          {`${order.ShopName || '—'}${order.Place ? ` • ${order.Place}` : ''}`}
-          </span>,
-    shopSortValue: `${order.ShopName || ''} ${order.Place || ''}`,
+    shop:  <span style={{ fontWeight: 'bold' }}>
+    {`${order.ShopName || '—'}${order.Place ? ` • ${order.Place}` : ''}`}
+    <br />
+    <span style={{ fontWeight: 'normal', fontStyle: 'italic' }}>
+      {order.AgentName || '—'}
+    </span>
+  </span>,
+    shopSortValue: `${order.AgentName || '—'} ${order.ShopName || ''} ${order.Place || ''}`,
 
     quintals: order.TotalQuintals || '0',
     items: formatOrderItems(order.Items),
@@ -457,7 +461,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
           rows={tableRows}
           columns={[
             { key: 'order', label: 'Order', sortable: true, sortValue: (row) => row.orderSortValue },
-            { key: 'agent', label: 'Agent', sortable: true },
+            //{ key: 'agent', label: 'Agent', sortable: true },
             { key: 'shop', label: 'Shop', sortable: true, sortValue: (row) => row.shopSortValue },
             { key: 'quintals', label: 'Quintals', sortable: true, sortValue: (row) => Number(row.quintals) || 0 },
             {
