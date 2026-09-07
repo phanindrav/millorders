@@ -172,6 +172,10 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
     setCreateShopDialogOpen(true);
   };
 
+  const totalAgentQuintals = useMemo(
+    () => orders.reduce((total, order) => total + Number(order.TotalQuintals || 0), 0),
+    [orders]
+  );
   const selectedAgentLabel = selectedAgentOption?.AgentName || 'No agent selected';
   const selectedShopLabel = selectedShop?.ShopName ? `${selectedShop.ShopName}${selectedShop.Place ? ` • ${selectedShop.Place}` : ''}` : 'No shop selected';
 
@@ -430,6 +434,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
           </form>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }}>
+            <Chip label={`Total Quintals: ${totalAgentQuintals.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`} color="success" variant="outlined" />
             <Chip label={`Agent: ${selectedAgentLabel}`} color="primary" variant="outlined" />
             {selectedAgentId ? <Chip label={`Shop: ${selectedShopLabel}`} color="secondary" variant="outlined" /> : null}
           </Stack>
