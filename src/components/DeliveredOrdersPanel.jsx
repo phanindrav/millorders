@@ -23,6 +23,8 @@ import {
   Typography,
   Tooltip,
 } from '@mui/material';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import EditCalendarRoundedIcon from '@mui/icons-material/EditCalendarRounded';
 import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded';
 
@@ -35,6 +37,12 @@ function formatNumber(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function shiftDate(dateString, days) {
+  const date = new Date(`${dateString}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
 }
 
 function DeliveredOrdersPanel() {
@@ -93,6 +101,14 @@ function DeliveredOrdersPanel() {
     }
   };
 
+  const changeSelectedDate = (days) => {
+    setSelectedDate((currentDate) => shiftDate(currentDate, days));
+  };
+
+  const changeEditDate = (days) => {
+    setEditDate((currentDate) => shiftDate(currentDate, days));
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -143,14 +159,26 @@ function DeliveredOrdersPanel() {
                 Review orders delivered on a selected date.
               </Typography>
             </Box>
-            <TextField
-              label="Delivery date"
-              type="date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ minWidth: { xs: '100%', md: 220 } }}
-            />
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: { xs: '100%', md: 'auto' } }}>
+              <Tooltip title="Previous day">
+                <IconButton onClick={() => changeSelectedDate(-1)} aria-label="Previous day">
+                  <ChevronLeftRoundedIcon />
+                </IconButton>
+              </Tooltip>
+              <TextField
+                label="Delivery date"
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ flex: 1, minWidth: { xs: 0, md: 220 } }}
+              />
+              <Tooltip title="Next day">
+                <IconButton onClick={() => changeSelectedDate(1)} aria-label="Next day">
+                  <ChevronRightRoundedIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           </Stack>
         </CardContent>
       </Card>
@@ -246,15 +274,26 @@ function DeliveredOrdersPanel() {
         <DialogTitle>Change delivery date</DialogTitle>
         <DialogContent>
           {actionError ? <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert> : null}
-          <TextField
-            label="Delivery date"
-            type="date"
-            fullWidth
-            value={editDate}
-            onChange={(event) => setEditDate(event.target.value)}
-            InputLabelProps={{ shrink: true }}
-            sx={{ mt: 1 }}
-          />
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 1 }}>
+            <Tooltip title="Previous day">
+              <IconButton onClick={() => changeEditDate(-1)} aria-label="Previous day">
+                <ChevronLeftRoundedIcon />
+              </IconButton>
+            </Tooltip>
+            <TextField
+              label="Delivery date"
+              type="date"
+              fullWidth
+              value={editDate}
+              onChange={(event) => setEditDate(event.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Tooltip title="Next day">
+              <IconButton onClick={() => changeEditDate(1)} aria-label="Next day">
+                <ChevronRightRoundedIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>

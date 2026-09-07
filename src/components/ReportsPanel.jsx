@@ -9,6 +9,7 @@ import {
   Chip,
   CircularProgress,
   Grid,
+  IconButton,
   MenuItem,
   Paper,
   Snackbar,
@@ -23,9 +24,12 @@ import {
   Tabs,
   TextField,
   Typography,
+  Tooltip,
 } from '@mui/material';
 import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded';
 import CalendarTodayRoundedIcon from '@mui/icons-material/CalendarTodayRounded';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 
 function getTodayString() {
@@ -37,6 +41,12 @@ function formatNumber(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function shiftDate(dateString, days) {
+  const date = new Date(`${dateString}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
 }
 
 function formatDate(dateStr) {
@@ -145,6 +155,10 @@ function ReportsPanel() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const changeSelectedDate = (days) => {
+    setSelectedDate((currentDate) => shiftDate(currentDate, days));
   };
 
   const loadCheckReport = async () => {
@@ -1252,13 +1266,25 @@ function ReportsPanel() {
             ) : null}
 
             {view === 'daily' ? (
-              <TextField
-                label="Delivery date"
-                type="date"
-                value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Tooltip title="Previous day">
+                  <IconButton onClick={() => changeSelectedDate(-1)} aria-label="Previous day">
+                    <ChevronLeftRoundedIcon />
+                  </IconButton>
+                </Tooltip>
+                <TextField
+                  label="Delivery date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <Tooltip title="Next day">
+                  <IconButton onClick={() => changeSelectedDate(1)} aria-label="Next day">
+                    <ChevronRightRoundedIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             ) : view === 'check' ? (
               <Button variant="outlined" onClick={loadCheckReport}>Refresh</Button>
             ) : (
