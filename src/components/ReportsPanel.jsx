@@ -76,6 +76,7 @@ function ReportsPanel() {
   const [riceReportName, setRiceReportName] = useState('All Rice');
   const [riceDetailRows, setRiceDetailRows] = useState([]);
   const [dailyReport, setDailyReport] = useState([]);
+  const [dailyApiTotals, setDailyApiTotals] = useState(null);
   const [checkReport, setCheckReport] = useState([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -150,6 +151,7 @@ function ReportsPanel() {
       const response = await fetch(`${apiBase}/api/reports/daily-report/${date}`, { headers: getAuthHeaders() });
       const data = await response.json();
       setDailyReport(Array.isArray(data.orders) ? data.orders : []);
+      setDailyApiTotals(data.totals && typeof data.totals === 'object' ? data.totals : null);
     } catch (error) {
       setSnackbar({ open: true, message: 'Unable to load daily report.', severity: 'error' });
     } finally {
@@ -606,7 +608,7 @@ function ReportsPanel() {
   }, [riceBrandSummaryRows]);
 
   const dailyTotals = useMemo(() => {
-    return dailyReport.reduce(
+    const rowTotals = dailyReport.reduce(
       (totals, row) => ({
         bags: totals.bags + Number(row.Bags || 0),
         kgs: totals.kgs + Number(row.Kgs || 0),
@@ -615,7 +617,13 @@ function ReportsPanel() {
       }),
       { bags: 0, kgs: 0, quintals: 0, amount: 0 }
     );
-  }, [dailyReport]);
+
+    return {
+      ...rowTotals,
+      quintals: Number(dailyApiTotals?.grandTotal?.Quintals ?? rowTotals.quintals),
+      amount: Number(dailyApiTotals?.grandTotal?.Amount ?? rowTotals.amount),
+    };
+  }, [dailyApiTotals, dailyReport]);
 
   const groupedDailyRows = useMemo(() => {
     const agentMap = new Map();
@@ -676,20 +684,38 @@ function ReportsPanel() {
   }, [dailyReport]);
 
   const dailyTypeTotals = useMemo(() => {
+    if (Array.isArray(dailyApiTotals?.types)) {
+      return dailyApiTotals.types
+        .map((type) => ({
+          type: type.TypeName || '—',
+          totalQuintals: Number(type.Quintals || 0),
+          totalAmount: Number(type.Amount || 0),
+          items: (Array.isArray(type.items) ? type.items : []).slice().sort((a, b) => Number(b.Amount || 0) - Number(a.Amount || 0)),
+        }))
+        .sort((a, b) => b.totalAmount - a.totalAmount);
+    }
+
     const map = new Map();
 
     dailyReport.forEach((row) => {
       const type = row.TypeName || row.Type || '—';
-      const current = map.get(type) || { type, totalQuintals: 0, totalAmount: 0 };
+      const current = map.get(type) || { type, totalQuintals: 0, totalAmount: 0, items: [] };
       current.totalQuintals += Number(row.Quintals || 0);
       current.totalAmount += Number(row.Amount || 0);
       map.set(type, current);
     });
 
     return Array.from(map.values()).sort((a, b) => b.totalAmount - a.totalAmount);
-  }, [dailyReport]);
+  }, [dailyApiTotals, dailyReport]);
 
   const dailyTypeGrandTotal = useMemo(() => {
+    if (dailyApiTotals?.grandTotal) {
+      return {
+        quintals: Number(dailyApiTotals.grandTotal.Quintals || 0),
+        amount: Number(dailyApiTotals.grandTotal.Amount || 0),
+      };
+    }
+
     return dailyTypeTotals.reduce(
       (totals, row) => ({
         quintals: totals.quintals + Number(row.totalQuintals || 0),
@@ -697,7 +723,7 @@ function ReportsPanel() {
       }),
       { quintals: 0, amount: 0 }
     );
-  }, [dailyTypeTotals]);
+  }, [dailyApiTotals, dailyTypeTotals]);
 
   const groupedCheckRows = useMemo(() => {
     const groups = new Map();
@@ -1106,23 +1132,35 @@ function ReportsPanel() {
       ? dailyTypeTotals
           .map(
             (row, index) => `
-              <tr>
+              <tr style="font-weight:700; background:#f6f6f6;">
                 <td>${row.type || '—'}</td>
+                <td>Type total</td>
                 <td style="text-align:right;">${formatNumber(row.totalQuintals)}</td>
+                <td style="text-align:right;">&nbsp;</td>
                 <td style="text-align:right;">${formatNumber(row.totalAmount)}</td>
               </tr>
+              ${(row.items || []).map((item) => `
+                <tr>
+                  <td></td>
+                  <td>${item.ItemName || '—'}</td>
+                  <td style="text-align:right;">${formatNumber(item.Quintals)}</td>
+                  <td style="text-align:right;">${formatNumber(item.AvgRate)}</td>
+                  <td style="text-align:right;">${formatNumber(item.Amount)}</td>
+                </tr>
+              `).join('')}
             `
           )
           .join('') + `
               <tr style="font-weight:700; background:#f6f6f6;">
-                <td>Grand Total</td>
+                <td colspan="2">Grand Total</td>
                 <td style="text-align:right;">${formatNumber(dailyTypeGrandTotal.quintals)}</td>
+                <td style="text-align:right;">&nbsp;</td>
                 <td style="text-align:right;">${formatNumber(dailyTypeGrandTotal.amount)}</td>
               </tr>
             `
       : `
           <tr>
-            <td colspan="3" style="text-align:center; padding: 18px;">No type totals available.</td>
+            <td colspan="5" style="text-align:center; padding: 18px;">No type totals available.</td>
           </tr>
         `;
 
@@ -1194,7 +1232,9 @@ function ReportsPanel() {
             <thead>
               <tr>
                 <th>Type</th>
+                <th>Item</th>
                 <th style="text-align:right;">Quintals</th>
+                <th style="text-align:right;">Avg Rate</th>
                 <th style="text-align:right;">Total Amount</th>
               </tr>
             </thead>
@@ -1848,29 +1888,45 @@ function ReportsPanel() {
                     <TableHead>
                       <TableRow>
                         <TableCell>Type</TableCell>
+                        <TableCell>Item</TableCell>
                         <TableCell align="right">Quintals</TableCell>
+                        <TableCell align="right">Avg Rate</TableCell>
                         <TableCell align="right">Total Amount</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {dailyTypeTotals.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={3} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                          <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                             No type totals available.
                           </TableCell>
                         </TableRow>
                       ) : (
                         <>
                           {dailyTypeTotals.map((row, index) => (
-                            <TableRow key={`${row.type}-${index}`} hover>
-                              <TableCell>{row.type}</TableCell>
-                              <TableCell align="right">{formatNumber(row.totalQuintals)}</TableCell>
-                              <TableCell align="right">{formatNumber(row.totalAmount)}</TableCell>
-                            </TableRow>
+                            <React.Fragment key={`${row.type}-${index}`}>
+                              <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}>
+                                <TableCell sx={{ fontWeight: 700 }}>{row.type}</TableCell>
+                                <TableCell sx={{ fontWeight: 700 }}>Type total</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(row.totalQuintals)}</TableCell>
+                                <TableCell align="right">—</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(row.totalAmount)}</TableCell>
+                              </TableRow>
+                              {(row.items || []).map((item, itemIndex) => (
+                                <TableRow key={`${row.type}-${item.ItemName}-${itemIndex}`} hover>
+                                  <TableCell />
+                                  <TableCell>{item.ItemName || '—'}</TableCell>
+                                  <TableCell align="right">{formatNumber(item.Quintals)}</TableCell>
+                                  <TableCell align="right">{formatNumber(item.AvgRate)}</TableCell>
+                                  <TableCell align="right">{formatNumber(item.Amount)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </React.Fragment>
                           ))}
                           <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}>
-                            <TableCell sx={{ fontWeight: 700 }}>Grand Total</TableCell>
+                            <TableCell colSpan={2} sx={{ fontWeight: 700 }}>Grand Total</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(dailyTypeGrandTotal.quintals)}</TableCell>
+                            <TableCell align="right">—</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(dailyTypeGrandTotal.amount)}</TableCell>
                           </TableRow>
                         </>

@@ -244,38 +244,146 @@ app.get('/api/reports/item-summary/:agentId', authenticateToken, (req, res) => {
 
 app.get('/api/reports/daily-report/:date', authenticateToken, (req, res) => {
   const { date } = req.params;
+
   const sql = `
-    SELECT 
-      a.AgentId,
-      a.AgentName,
-      s.ShopName,
-      s.Place,
-      r.RiceType AS ItemName,
-      t.Id As TypeId,
-      t.Name AS TypeName,
-      b.BrandName AS Brand,
-      oi.Bags,
-      oi.Kgs,
-      ROUND(oi.Bags * oi.Kgs / 100.0, 2) AS Quintals,
-      ROUND(oi.Rate, 2) AS Rate,
-      ROUND((oi.Bags * oi.Kgs / 100.0) * oi.Rate, 2) AS Amount,
-      o.OrderId
-    FROM Orders o
-    LEFT JOIN Shop s ON o.ShopId = s.ShopId
-    LEFT JOIN Agent a ON s.AgentId = a.AgentId
-    LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId
-    LEFT JOIN Item i ON i.ItemId = oi.ItemId
-    LEFT JOIN Rice r ON r.RiceId = i.RiceId
-    LEFT JOIN "Type" t ON t.Id = r.TypeId
-    LEFT JOIN Brand b ON b.BrandId = i.BrandId
-    LEFT JOIN Status st ON st.StatusId = oi.StatusId
-    WHERE o.DeliveryDate IS NOT NULL AND o.DeliveryDate = ?
+    SELECT  
+      a.AgentId, 
+      a.AgentName, 
+      s.ShopName, 
+      s.Place, 
+      r.RiceId AS ItemId, 
+      r.RiceType AS ItemName, 
+      t.Id AS TypeId, 
+      t.Name AS TypeName, 
+      b.BrandId AS BrandId, 
+      b.BrandName AS Brand, 
+      oi.Bags, 
+      oi.Kgs, 
+      ROUND(oi.Bags * oi.Kgs / 100.0, 2) AS Quintals, 
+      ROUND(oi.Rate, 2) AS Rate, 
+      ROUND((oi.Bags * oi.Kgs / 100.0) * oi.Rate, 2) AS Amount, 
+      o.OrderId 
+    FROM Orders o 
+    LEFT JOIN Shop s ON o.ShopId = s.ShopId 
+    LEFT JOIN Agent a ON s.AgentId = a.AgentId 
+    LEFT JOIN OrderItem oi ON o.OrderId = oi.OrderId 
+    LEFT JOIN Item i ON i.ItemId = oi.ItemId 
+    LEFT JOIN Rice r ON r.RiceId = i.RiceId 
+    LEFT JOIN "Type" t ON t.Id = r.TypeId 
+    LEFT JOIN Brand b ON b.BrandId = i.BrandId 
+    LEFT JOIN Status st ON st.StatusId = oi.StatusId 
+    WHERE o.DeliveryDate IS NOT NULL 
+      AND o.DeliveryDate = ? 
     ORDER BY a.AgentName, o.OrderId, s.ShopId
   `;
 
   db.all(sql, [date], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ orders: rows || [] });
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    rows = rows || [];
+
+    // -----------------------------------------
+    // Build totals
+    // -----------------------------------------
+
+    const typeMap = {};
+    let grandQuintals = 0;
+    let grandAmount = 0;
+
+    rows.forEach(row => {
+      const typeId = row.TypeId;
+      const typeName = row.TypeName || 'Unknown';
+
+      const itemId = row.ItemId;
+      const itemName = row.ItemName || 'Unknown';
+
+      const quintals = Number(row.Quintals) || 0;
+      const amount = Number(row.Amount) || 0;
+
+      // Grand total
+      grandQuintals += quintals;
+      grandAmount += amount;
+
+      // -----------------------------------------
+      // Type total
+      // -----------------------------------------
+      if (!typeMap[typeId]) {
+        typeMap[typeId] = {
+          TypeId: typeId,
+          TypeName: typeName,
+          Quintals: 0,
+          Amount: 0,
+          items: {}
+        };
+      }
+
+      typeMap[typeId].Quintals += quintals;
+      typeMap[typeId].Amount += amount;
+
+      // -----------------------------------------
+      // Item total within Type
+      // -----------------------------------------
+      if (!typeMap[typeId].items[itemId]) {
+        typeMap[typeId].items[itemId] = {
+          ItemId: itemId,
+          ItemName: itemName,
+          Quintals: 0,
+          Amount: 0
+        };
+      }
+
+      typeMap[typeId].items[itemId].Quintals += quintals;
+      typeMap[typeId].items[itemId].Amount += amount;
+    });
+
+    // -----------------------------------------
+    // Convert maps to arrays and calculate AvgRate
+    // -----------------------------------------
+
+    const totals = Object.values(typeMap).map(type => {
+
+      const items = Object.values(type.items).map(item => {
+        const avgRate =
+          item.Quintals > 0
+            ? item.Amount / item.Quintals
+            : 0;
+
+        return {
+          ItemId: item.ItemId,
+          ItemName: item.ItemName,
+          Quintals: Number(item.Quintals.toFixed(2)),
+          AvgRate: Number(avgRate.toFixed(2)),
+          Amount: Number(item.Amount.toFixed(2))
+        };
+      });
+
+      return {
+        TypeId: type.TypeId,
+        TypeName: type.TypeName,
+        Quintals: Number(type.Quintals.toFixed(2)),
+        Amount: Number(type.Amount.toFixed(2)),
+        items
+      };
+    });
+
+    // -----------------------------------------
+    // Response
+    // -----------------------------------------
+
+    res.json({
+      orders: rows,
+
+      totals: {
+        types: totals,
+
+        grandTotal: {
+          Quintals: Number(grandQuintals.toFixed(2)),
+          Amount: Number(grandAmount.toFixed(2))
+        }
+      }
+    });
   });
 });
 
@@ -784,73 +892,11 @@ app.get("/api/orders/:agentId", authenticateToken, (req, res) => {
       ROUND(SUM((oi.Bags * oi.Kgs / 100) * oi.Rate), 0) AS TotalAmount,
       GROUP_CONCAT(
           r.RiceType || ' ' || b.BrandName || ', ' ||
-          printf('%g', oi.Bags) || ' *' ||
-          printf('%g', oi.Kgs) || ' kgs : ' ||
-          printf('%.2f', oi.Bags * oi.Kgs / 100) || ' qtls - ₹' ||
+          printf('%g', oi.Bags) || ' * ' ||
+          printf('%g', oi.Kgs) || ' kgs @  ₹' ||
           printf('%g', oi.Rate),
           '\n'
       ) AS Items
-    FROM Orders o
-    LEFT JOIN Shop sh ON o.ShopId = sh.ShopId
-    LEFT JOIN Agent a ON sh.AgentId = a.AgentId
-    LEFT JOIN OrderItem oi ON oi.OrderId = o.OrderId
-    LEFT JOIN Item i ON i.ItemId = oi.ItemId
-    LEFT JOIN Rice r ON r.RiceId = i.RiceId
-    LEFT JOIN Brand b ON i.BrandId = b.BrandId
-    LEFT JOIN Status st ON st.StatusId = oi.StatusId
-      WHERE o.DeliveryDate IS NULL
-      ${isAllAgents ? "" : "AND sh.AgentId = ?"}
-    GROUP BY o.OrderId
-    ORDER BY o.OrderId DESC;
-  `;
-
-    db.all(sql, isAllAgents ? [] : [req.params.agentId], (err, orders) => {
-    if (err) return res.status(400).json({ error: err.message });
-    res.json(orders);
-  });
-});
-
-app.get("/api/orders1/:agentId", authenticateToken, (req, res) => {
-  const isAllAgents = req.params.agentId === "all";
-  const sql = `
-    SELECT 
-      o.OrderId, 
-      o.Date, 
-      a.AgentName, 
-      sh.ShopName,
-      sh.Place,
-      sh.Address,
-      sh.GST,
-      sh.PhoneNumber,
-      COUNT(oi.ItemId) AS TotalItems,
-      ROUND(SUM(oi.Bags), 2) as TotalBags,
-      ROUND( SUM(oi.Bags * oi.Kgs / 100 ), 2) AS TotalQuintals,
-      ROUND(SUM((oi.Bags * oi.Kgs / 100) * oi.Rate), 0) AS TotalAmount      
-    FROM Orders o
-    LEFT JOIN Shop sh ON o.ShopId = sh.ShopId
-    LEFT JOIN Agent a ON sh.AgentId = a.AgentId
-    LEFT JOIN OrderItem oi ON oi.OrderId = o.OrderId
-    LEFT JOIN Item i ON i.ItemId = oi.ItemId
-    LEFT JOIN Rice r ON r.RiceId = i.RiceId
-    LEFT JOIN Brand b ON i.BrandId = b.BrandId
-    LEFT JOIN Status st ON st.StatusId = oi.StatusId
-      WHERE o.DeliveryDate IS NULL
-      ${isAllAgents ? "" : "AND sh.AgentId = ?"}
-    GROUP BY o.OrderId
-    ORDER BY o.OrderId DESC;
-  `;
-
-  const sql1 = `
-    SELECT 
-      o.OrderId, 
-      r.RiceType as ItemName,
-      b.BrandName as Brand,
-      oi.Bags,
-      oi.Kgs,
-      oi.Rate,
-      oi.Condition,
-      ROUND( (oi.Bags * oi.Kgs / 100 ), 2) AS TotalQuintals,
-      ROUND(((oi.Bags * oi.Kgs / 100) * oi.Rate), 0) AS TotalAmount      
     FROM Orders o
     LEFT JOIN Shop sh ON o.ShopId = sh.ShopId
     LEFT JOIN Agent a ON sh.AgentId = a.AgentId

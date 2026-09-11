@@ -48,6 +48,7 @@ function shiftDate(dateString, days) {
 function DeliveredOrdersPanel() {
   const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [orders, setOrders] = useState([]);
+  const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -138,14 +139,70 @@ function DeliveredOrdersPanel() {
     };
   }, [selectedDate]);
 
+  const filteredOrders = useMemo(() => {
+    const search = searchText.trim().toLocaleLowerCase();
+    if (!search) return orders;
+
+    return orders.filter((row) => [row.AgentName, row.ShopName]
+      .some((value) => String(value || '').toLocaleLowerCase().includes(search)));
+  }, [orders, searchText]);
+
+  const groupedOrders = useMemo(() => {
+    const agentMap = new Map();
+
+    filteredOrders.forEach((row) => {
+      const agentKey = String(row.AgentId ?? row.AgentName ?? 'Unknown');
+      if (!agentMap.has(agentKey)) {
+        agentMap.set(agentKey, {
+          agentName: row.AgentName || '—',
+          orders: new Map(),
+        });
+      }
+
+      const agentEntry = agentMap.get(agentKey);
+      const orderKey = `${row.OrderId ?? '—'}|${row.ShopName ?? '—'}|${row.Place ?? '—'}`;
+      if (!agentEntry.orders.has(orderKey)) {
+        agentEntry.orders.set(orderKey, {
+          orderId: row.OrderId || '—',
+          shopName: row.ShopName || '—',
+          place: row.Place || '—',
+          items: [],
+        });
+      }
+
+      agentEntry.orders.get(orderKey).items.push(row);
+    });
+
+    const groupedRows = [];
+    agentMap.forEach((agentEntry) => {
+      const orderGroups = Array.from(agentEntry.orders.values());
+      const agentRowSpan = orderGroups.reduce((total, order) => total + order.items.length, 0);
+
+      orderGroups.forEach((order, orderIndex) => {
+        order.items.forEach((item, itemIndex) => {
+          groupedRows.push({
+            ...item,
+            agentName: agentEntry.agentName,
+            showAgent: orderIndex === 0 && itemIndex === 0,
+            agentRowSpan,
+            showOrder: itemIndex === 0,
+            orderRowSpan: order.items.length,
+          });
+        });
+      });
+    });
+
+    return groupedRows;
+  }, [filteredOrders]);
+
   const totals = useMemo(
-    () => orders.reduce((summary, row) => ({
+    () => filteredOrders.reduce((summary, row) => ({
       bags: summary.bags + Number(row.Bags || 0),
       kgs: summary.kgs + Number(row.Kgs || 0),
       quintals: summary.quintals + Number(row.Quintals || 0),
       amount: summary.amount + Number(row.Amount || 0),
     }), { bags: 0, kgs: 0, quintals: 0, amount: 0 }),
-    [orders]
+    [filteredOrders]
   );
 
   return (
@@ -192,7 +249,18 @@ function DeliveredOrdersPanel() {
               <Typography variant="h6">Delivery details</Typography>
               <Typography variant="body2" color="text.secondary">{selectedDate}</Typography>
             </Box>
-            <Typography variant="body2" color="text.secondary">{orders.length} item records</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ width: { xs: '100%', md: 'auto' } }}>
+              <TextField
+                size="small"
+                label="Search agent or shop"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                sx={{ minWidth: { xs: '100%', sm: 240 } }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                {filteredOrders.length} item records
+              </Typography>
+            </Stack>
           </Stack>
 
           {loading ? (
@@ -217,42 +285,50 @@ function DeliveredOrdersPanel() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {orders.length === 0 ? (
+                  {filteredOrders.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                        No delivered orders found for this date.
+                        {orders.length === 0 ? 'No delivered orders found for this date.' : 'No orders match the search.'}
                       </TableCell>
                     </TableRow>
-                  ) : orders.map((row, index) => (
+                  ) : groupedOrders.map((row, index) => (
                     <TableRow key={`${row.OrderId}-${row.ItemName}-${row.Brand}-${index}`} hover>
-                      <TableCell>{row.AgentName || '—'}</TableCell>
-                      <TableCell>
-                        <Box sx={{ fontWeight: 600 }}>#{row.OrderId || '—'}</Box>
-                        <Box component="span">{row.ShopName || '—'}{row.Place ? ` • ${row.Place}` : ''}</Box>
-                      </TableCell>
+                      {row.showAgent ? (
+                        <TableCell rowSpan={row.agentRowSpan} sx={{ verticalAlign: 'top', fontWeight: 600 }}>
+                          {row.agentName}
+                        </TableCell>
+                      ) : null}
+                      {row.showOrder ? (
+                        <TableCell rowSpan={row.orderRowSpan} sx={{ verticalAlign: 'top' }}>
+                          <Box sx={{ fontWeight: 600 }}>#{row.OrderId || '—'}</Box>
+                          <Box component="span">{row.ShopName || '—'}{row.Place ? ` • ${row.Place}` : ''}</Box>
+                        </TableCell>
+                      ) : null}
                       <TableCell>{row.ItemName || '—'} • {row.Brand || '—'}</TableCell>
                       <TableCell align="right">{row.Bags || 0}</TableCell>
                       <TableCell align="right">{formatNumber(row.Kgs)}</TableCell>
                       <TableCell align="right">{formatNumber(row.Quintals)}</TableCell>
                       <TableCell align="right">{formatNumber(row.Rate)}</TableCell>
                       <TableCell align="right">{formatNumber(row.Amount)}</TableCell>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={0.5} justifyContent="center">
-                          <Tooltip title="Change delivery date">
-                            <IconButton size="small" color="primary" onClick={() => openEditDialog(row)} aria-label={`Change delivery date for order ${row.OrderId}`}>
-                              <EditCalendarRoundedIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Mark as not delivered">
-                            <IconButton size="small" color="error" onClick={() => handleClearDeliveryDate(row)} aria-label={`Mark order ${row.OrderId} as not delivered`}>
-                              <EventBusyRoundedIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
+                      {row.showOrder ? (
+                        <TableCell rowSpan={row.orderRowSpan} align="center" sx={{ verticalAlign: 'top' }}>
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <Tooltip title="Change delivery date">
+                              <IconButton size="small" color="primary" onClick={() => openEditDialog(row)} aria-label={`Change delivery date for order ${row.OrderId}`}>
+                                <EditCalendarRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Mark as not delivered">
+                              <IconButton size="small" color="error" onClick={() => handleClearDeliveryDate(row)} aria-label={`Mark order ${row.OrderId} as not delivered`}>
+                                <EventBusyRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
-                  {orders.length > 0 ? (
+                  {filteredOrders.length > 0 ? (
                     <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}>
                       <TableCell colSpan={3} sx={{ fontWeight: 700 }}>Grand Total</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{totals.bags}</TableCell>
