@@ -659,7 +659,8 @@ app.get("/api/agentsummary", (req, res) => {
         ORDER BY
             a.AgentId,
             r.Odr,
-            b.BrandName
+          b.Odr,
+          oi.Kgs ASC
     `;
 
     db.all(sql, [], (err, rows) => {

@@ -210,6 +210,37 @@ function App() {
     [brandSummary]
   );
 
+  const groupedAgentSummary = useMemo(
+    () =>
+      [...filteredAgentSummary]
+        .sort((firstAgent, secondAgent) => Number(secondAgent.quintals || 0) - Number(firstAgent.quintals || 0))
+        .map((agent) => ({
+          ...agent,
+          rice: [...agent.rice]
+            .sort((firstRice, secondRice) => Number(secondRice.quintals || 0) - Number(firstRice.quintals || 0))
+            .map((rice) => {
+              const brandGroups = [];
+              const groupsByName = new Map();
+
+              rice.brands.forEach((brand) => {
+                const brandName = brand.brandName || '—';
+                let group = groupsByName.get(brandName);
+
+                if (!group) {
+                  group = { brandName, rows: [] };
+                  groupsByName.set(brandName, group);
+                  brandGroups.push(group);
+                }
+
+                group.rows.push(brand);
+              });
+
+              return { ...rice, brandGroups };
+            }),
+        })),
+    [filteredAgentSummary]
+  );
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <SidebarNavigation open={mobileOpen} onClose={() => setMobileOpen(false)} selectedView={activeView} onNavigate={handleNavigate} />
@@ -590,8 +621,8 @@ function App() {
                           <TableCell sx={{ fontWeight: 700 }}>Agent</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Rice</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Brand</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700 }}>Bags</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700 }}>Kgs</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>Bags</TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700 }}>Qtls</TableCell>
                         </TableRow>
                       </TableHead>
@@ -606,10 +637,13 @@ function App() {
                           </TableRow>
                         ) : (
 
-                          filteredAgentSummary.map(agent => {
+                          groupedAgentSummary.map(agent => {
 
                             const agentRows = agent.rice.reduce(
-                              (sum, rice) => sum + rice.brands.length,
+                              (sum, rice) => sum + rice.brandGroups.reduce(
+                                (riceRows, group) => riceRows + group.rows.length,
+                                0
+                              ),
                               0
                             );
 
@@ -619,10 +653,11 @@ function App() {
 
                               let riceRendered = false;
 
-                              return rice.brands.map((brand, index) => (
+                              return rice.brandGroups.flatMap((group) =>
+                                group.rows.map((brand, index) => (
 
                                 <TableRow
-                                  key={`${agent.agentId}-${rice.riceId}-${brand.brandId}`}
+                                  key={`${agent.agentId}-${rice.riceId}-${group.brandName}-${brand.kgs}-${index}`}
                                   hover
                                 >
 
@@ -651,7 +686,10 @@ function App() {
 
                                   {!riceRendered && (
                                     <TableCell
-                                      rowSpan={rice.brands.length}
+                                      rowSpan={rice.brandGroups.reduce(
+                                        (sum, brandGroup) => sum + brandGroup.rows.length,
+                                        0
+                                      )}
                                       sx={{
                                         bgcolor: "grey.50",
                                         verticalAlign: "top",
@@ -670,14 +708,18 @@ function App() {
                                     </TableCell>
                                   )}
 
-                                  <TableCell>{brand.brandName}</TableCell>
-
-                                  <TableCell align="right">
-                                    {brand.bags}
-                                  </TableCell>
+                                  {index === 0 && (
+                                    <TableCell rowSpan={group.rows.length} sx={{ verticalAlign: 'top' }}>
+                                      {group.brandName}
+                                    </TableCell>
+                                  )}
 
                                   <TableCell align="right">
                                     {brand.kgs}
+                                  </TableCell>
+
+                                  <TableCell align="right">
+                                    {brand.bags}
                                   </TableCell>
 
                                   <TableCell align="right">
@@ -692,7 +734,8 @@ function App() {
 
                                 </TableRow>
 
-                              ));
+                                ))
+                              );
 
                             });
 
@@ -714,7 +757,7 @@ function App() {
 
                           <TableCell align="right">
                             {formatNumber(
-                              filteredAgentSummary.reduce(
+                                groupedAgentSummary.reduce(
                                 (sum, a) => sum + a.quintals,
                                 0
                               )
