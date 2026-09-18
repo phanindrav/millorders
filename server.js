@@ -580,7 +580,7 @@ app.get("/api/brandsummary", (req, res) => {
         WHERE st.StatusId IN (1,2)
           AND o.DeliveryDate IS NULL
         GROUP BY r.RiceId, b.BrandId, oi.Kgs
-        ORDER BY r.Odr, oi.Kgs, b.BrandId, oi.kgs asc
+        ORDER BY r.Odr, b.Odr, oi.Kgs ASC
     `;
 
     db.all(sql, [], (err, rows) => {

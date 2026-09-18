@@ -186,6 +186,30 @@ function App() {
     );
   }, [agentSummary, agentSearch]);
 
+  const groupedBrandSummary = useMemo(
+    () =>
+      brandSummary.map((item) => {
+        const brandGroups = [];
+        const groupsByName = new Map();
+
+        item.brands.forEach((brand) => {
+          const brandName = brand.BrandName || '—';
+          let group = groupsByName.get(brandName);
+
+          if (!group) {
+            group = { brandName, rows: [] };
+            groupsByName.set(brandName, group);
+            brandGroups.push(group);
+          }
+
+          group.rows.push(brand);
+        });
+
+        return { ...item, brandGroups };
+      }),
+    [brandSummary]
+  );
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <SidebarNavigation open={mobileOpen} onClose={() => setMobileOpen(false)} selectedView={activeView} onNavigate={handleNavigate} />
@@ -404,13 +428,13 @@ function App() {
                             align="right"
                             sx={{ fontWeight: 700 }}
                           >
-                            Bags
+                            Kgs
                           </TableCell>
                           <TableCell
                             align="right"
                             sx={{ fontWeight: 700 }}
                           >
-                            Kgs
+                            Bags
                           </TableCell>
                           <TableCell
                             align="right"
@@ -423,7 +447,7 @@ function App() {
 
                      <TableBody>
 
-                      {brandSummary.length === 0 ? (
+                        {groupedBrandSummary.length === 0 ? (
                           <TableRow>
                               <TableCell colSpan={5} align="center">
                                   No pending orders
@@ -431,15 +455,24 @@ function App() {
                           </TableRow>
                       ) : (
 
-                          brandSummary.map(item =>
+                          groupedBrandSummary.map(item => {
+                              const itemRowSpan = item.brandGroups.reduce(
+                                (total, group) => total + group.rows.length,
+                                0
+                              );
+                              let itemRowIndex = 0;
 
-                              item.brands.map((brand, index) => (
+                              return item.brandGroups.flatMap((group) =>
+                                group.rows.map((brand, index) => {
+                                  const isFirstItemRow = itemRowIndex === 0;
+                                  itemRowIndex += 1;
 
-                                  <TableRow key={`${item.RiceId}-${index}`} hover>
+                                  return (
+                                  <TableRow key={`${item.RiceId}-${group.brandName}-${brand.Kgs}-${index}`} hover>
 
-                                      {index === 0 && (
+                                      {isFirstItemRow && (
                                           <TableCell
-                                              rowSpan={item.brands.length}
+                                              rowSpan={itemRowSpan}
                                               sx={{
                                                   fontWeight: "bold",
                                                   verticalAlign: "top",
@@ -461,13 +494,17 @@ function App() {
                                           </TableCell>
                                       )}
 
-                                      <TableCell>{brand.BrandName}</TableCell>
+                                        {index === 0 && (
+                                          <TableCell rowSpan={group.rows.length} sx={{ verticalAlign: "top" }}>
+                                          {group.brandName}
+                                          </TableCell>
+                                        )}
                                       <TableCell align="right">
-                                          {brand.Bags}
+                                          {brand.Kgs}
                                       </TableCell>
 
                                       <TableCell align="right">
-                                          {brand.Kgs}
+                                          {brand.Bags}
                                       </TableCell>
 
                                       <TableCell align="right">
@@ -475,10 +512,10 @@ function App() {
                                       </TableCell>
 
                                   </TableRow>
-
-                              ))
-
-                          )
+                                  );
+                                })
+                              );
+                          })
 
                       )}
 
