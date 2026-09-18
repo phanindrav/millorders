@@ -1370,7 +1370,7 @@ function ReportsPanel() {
           <CardContent>
             <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={2} sx={{ mb: 2 }}>
               <Box>
-                <Typography variant="h6">Orders summary</Typography>
+                <Typography variant="h6" sx={{ fontSize: '1.35rem' }}>Orders summary</Typography>
                 <Typography variant="body2" color="text.secondary">Item totals and brand-wise quantity summary</Typography>
               </Box>
               <Stack direction="row" spacing={1}>
@@ -1379,11 +1379,11 @@ function ReportsPanel() {
               </Stack>
             </Stack>
 
-            <Box id="agent-summary-print-area" sx={{ maxWidth: 920, mx: 'auto' }}>
-              <Card variant="outlined" sx={{ mb: 2, maxWidth: 900, mx: 'auto' }}>
+            <Box id="agent-summary-print-area" sx={{ width: '100%', maxWidth: 1100, mr: 'auto' }}>
+              <Card variant="outlined" sx={{ mb: 2, width: '100%' }}>
                 <CardContent>
-                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>Item summary</Typography>
-                  <TableContainer component={Paper} variant="outlined" sx={{ '& .MuiTableCell-root': { px: 1.25, py: 0.75, fontSize: '0.8rem' } }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600, fontSize: '1.1rem' }}>Item summary</Typography>
+                  <TableContainer component={Paper} variant="outlined" sx={{ '& .MuiTableCell-root': { px: 1.25, py: 0.9, fontSize: '0.95rem' } }}>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
@@ -1418,13 +1418,13 @@ function ReportsPanel() {
                 </CardContent>
               </Card>
 
-              <Card variant="outlined" sx={{ maxWidth: 900, mx: 'auto' }}>
+              <Card variant="outlined" sx={{ width: '100%' }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Brand-wise Summary</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>Brand-wise Summary</Typography>
                     <Button variant="outlined" size="small" onClick={handleCaptureBrandSummary}>Capture table</Button>
                   </Stack>
-                  <TableContainer component={Paper} variant="outlined" ref={brandSummaryTableRef} sx={{ '& .MuiTableCell-root': { px: 1.25, py: 0.75, fontSize: '0.8rem' } }}>
+                  <TableContainer component={Paper} variant="outlined" ref={brandSummaryTableRef} sx={{ '& .MuiTableCell-root': { px: 1.25, py: 0.9, fontSize: '0.95rem' } }}>
                     <Table size="small" sx={{ tableLayout: 'fixed' }}>
                       <TableHead>
                         <TableRow>

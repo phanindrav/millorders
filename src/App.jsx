@@ -67,6 +67,7 @@ function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState('overview');
+  const [overviewRefreshKey, setOverviewRefreshKey] = useState(0);
   const [agentSearch, setAgentSearch] = useState('');
   const [auth, setAuth] = useState(() => {
     const token = localStorage.getItem('jwtToken');
@@ -81,6 +82,7 @@ function App() {
     }
 
     const loadData = async () => {
+      setLoading(true);
       try {
         const token = localStorage.getItem('jwtToken');
         const [agentsResponse, shopsResponse, itemsResponse, ordersResponse, riceSummaryResponse, brandSummaryResponse, agentSummaryResponse] = await Promise.all([
@@ -122,7 +124,7 @@ function App() {
     };
 
     loadData();
-  }, [auth?.token]);
+  }, [auth?.token, overviewRefreshKey]);
 
   const summaryCards = useMemo(
     () => [
@@ -159,6 +161,13 @@ function App() {
     setAuth(null);
   };
 
+  const handleNavigate = (view) => {
+    setActiveView(view);
+    if (view === 'overview') {
+      setOverviewRefreshKey((currentKey) => currentKey + 1);
+    }
+  };
+
   if (!auth?.token) {
     return <LoginPage onSuccess={handleLogin} />;
   }
@@ -179,7 +188,7 @@ function App() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <SidebarNavigation open={mobileOpen} onClose={() => setMobileOpen(false)} selectedView={activeView} onNavigate={(view) => setActiveView(view)} />
+      <SidebarNavigation open={mobileOpen} onClose={() => setMobileOpen(false)} selectedView={activeView} onNavigate={handleNavigate} />
       <AppBar position="sticky" color="transparent" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)' }}>
         <Toolbar sx={{ px: { xs: 2, md: 3 } }}>
           <IconButton edge="start" color="inherit" onClick={() => setMobileOpen(true)} sx={{ mr: 1, display: { lg: 'none' } }}>
@@ -198,7 +207,7 @@ function App() {
             <Button variant="outlined" color="secondary" onClick={handleLogout}>
               Logout
             </Button>
-            <Button variant={activeView === 'overview' ? 'contained' : 'outlined'} color="primary" onClick={() => setActiveView('overview')}>
+            <Button variant={activeView === 'overview' ? 'contained' : 'outlined'} color="primary" onClick={() => handleNavigate('overview')}>
               Overview
             </Button>
             <Button variant={activeView === 'orders' ? 'contained' : 'outlined'} color="primary" onClick={() => setActiveView('orders')}>
