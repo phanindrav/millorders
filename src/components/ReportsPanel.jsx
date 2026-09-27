@@ -252,6 +252,7 @@ function ReportsPanel() {
         grouped.set(key, {
           item,
           brand,
+          brandOdr: Number(row.BrandOdr ?? Number.MAX_SAFE_INTEGER),
           kgs,
           bags: 0,
           quintals: 0,
@@ -271,25 +272,51 @@ function ReportsPanel() {
       itemGroups.get(entry.item).push(entry);
     });
 
-    const flattened = [];
-    itemGroups.forEach((values, item) => {
-      const itemTotalQuintals = values.reduce((sum, entry) => sum + Number(entry.quintals || 0), 0);
+    return Array.from(itemGroups.entries())
+      .map(([item, values]) => ({
+        item,
+        values,
+        itemTotalQuintals: values.reduce((sum, entry) => sum + Number(entry.quintals || 0), 0),
+      }))
+      .sort((firstItem, secondItem) => secondItem.itemTotalQuintals - firstItem.itemTotalQuintals)
+      .flatMap(({ item, values, itemTotalQuintals }) => {
+        const brandGroups = new Map();
 
-      values.forEach((entry, index) => {
-        flattened.push({
-          item,
-          itemTotalQuintals,
-          showItem: index === 0,
-          itemRowSpan: values.length,
-          brand: entry.brand,
-          bags: entry.bags,
-          kgs: entry.kgs,
-          quintals: entry.quintals,
+        values.forEach((entry) => {
+          if (!brandGroups.has(entry.brand)) {
+            brandGroups.set(entry.brand, []);
+          }
+          brandGroups.get(entry.brand).push(entry);
         });
-      });
-    });
 
-    return flattened.sort((a, b) => Number(b.itemTotalQuintals || 0) - Number(a.itemTotalQuintals || 0));
+        const sortedBrandGroups = Array.from(brandGroups.entries())
+          .sort(([, firstRows], [, secondRows]) => firstRows[0].brandOdr - secondRows[0].brandOdr)
+          .map(([brand, rows]) => ({
+            brand,
+            rows: rows.sort((firstRow, secondRow) => firstRow.kgs - secondRow.kgs),
+          }));
+        const itemRowSpan = sortedBrandGroups.reduce((sum, group) => sum + group.rows.length, 0);
+        let itemRowIndex = 0;
+
+        return sortedBrandGroups.flatMap((group) =>
+          group.rows.map((entry, index) => {
+            const row = {
+              item,
+              itemTotalQuintals,
+              showItem: itemRowIndex === 0,
+              itemRowSpan,
+              showBrand: index === 0,
+              brandRowSpan: group.rows.length,
+              brand: group.brand,
+              bags: entry.bags,
+              kgs: entry.kgs,
+              quintals: entry.quintals,
+            };
+            itemRowIndex += 1;
+            return row;
+          })
+        );
+      });
   }, [agentReport]);
 
   const agentBrandGrandTotal = useMemo(() => {
@@ -381,6 +408,10 @@ function ReportsPanel() {
             .item-summary {
               page-break-after: always;
             }
+            .item-summary-table {
+              width: 35%;
+              font-size: 15px;
+            }
             .brand-summary {
               page-break-before: always;
               page-break-inside: avoid;
@@ -408,13 +439,10 @@ function ReportsPanel() {
         </head>
         <body>
           <div class="summary-title">
-            <h2>Orders Summary</h2>
-            <div class="muted">${currentAgentName}</div>
+            <h2>${currentAgentName} Orders Summary</h2>
           </div>
-
           <section class="item-summary">
-            <h3>Item Summary</h3>
-            <table>
+            <table class="item-summary-table">
               <thead>
                 <tr>
                   <th>Item</th>
@@ -899,7 +927,7 @@ function ReportsPanel() {
           <title>Check Report</title>
           <style>
             @page { size: landscape; margin: 12mm; }
-            body { font-family: Arial, sans-serif; color: #111; font-size: 10px; }
+            body { font-family: Arial, sans-serif; color: #111; font-size: 16px; }
             h2 { margin: 0 0 10px; font-size: 16px; }
             table { width: 100%; border-collapse: collapse; }
             th, td { border: 1px solid #333; padding: 5px 7px; text-align: left; }
@@ -1454,7 +1482,11 @@ function ReportsPanel() {
                                     </Box>
                                   </TableCell>
                                 ) : null}
-                                <TableCell>{row.brand}</TableCell>
+                                {row.showBrand ? (
+                                  <TableCell rowSpan={row.brandRowSpan} sx={{ verticalAlign: 'top' }}>
+                                    {row.brand}
+                                  </TableCell>
+                                ) : null}
                                 <TableCell align="right">{formatNumber(row.kgs)}</TableCell>
                                 <TableCell align="right">{row.bags}</TableCell>
                                 <TableCell align="right">{formatNumber(row.quintals)}</TableCell>

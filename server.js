@@ -163,7 +163,9 @@ app.get('/api/reports/agent-summary/:agentId', authenticateToken, (req, res) => 
       s.Place,
       s.PhoneNumber,
       r.RiceType AS ItemName,
+      r.Odr AS RiceOdr,
       b.BrandName AS Brand,
+      b.Odr AS BrandOdr,
       oi.Bags,
       oi.Kgs,
       ROUND(oi.Bags * oi.Kgs / 100.0, 2) AS Quintals,
@@ -181,7 +183,7 @@ app.get('/api/reports/agent-summary/:agentId', authenticateToken, (req, res) => 
     LEFT JOIN Status st ON st.StatusId = oi.StatusId
     WHERE st.StatusId IN (1,2) AND o.DeliveryDate IS NULL
     ${!isAll ? 'AND s.AgentId = ?' : ''}
-    ORDER BY a.AgentName, o.Date, o.OrderId
+    ORDER BY a.AgentName, r.Odr, b.Odr, oi.Kgs, o.Date, o.OrderId
   `;
 
   db.all(sql, params, (err, rows) => {
