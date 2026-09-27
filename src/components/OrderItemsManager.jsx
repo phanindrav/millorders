@@ -10,11 +10,12 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
-  MenuItem,
+  IconButton,
   Paper,
   Snackbar,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
@@ -130,6 +131,9 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
     }, {});
   }, [catalog]);
 
+  const enteredTons = (Number(bags) || 0) * (Number(kgs) || 0) / 1000;
+  const formatTons = (value) => Number(value || 0).toFixed(3);
+
   const resetForm = () => {
     setSelectedItem(null);
     setBags('');
@@ -225,7 +229,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Box>
               <Typography variant="h6">Order items</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="subtitle1" fontWeight={600} color="text.primary">
                 {order ? `Order #${order.OrderId} • ${order.ShopName || 'Shop'}` : 'Select an order'}
               </Typography>
             </Box>
@@ -254,7 +258,15 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                 <TextField label="Rate" type="number" fullWidth value={rate} onChange={(event) => setRate(event.target.value)} required />
               </Grid>
               <Grid item xs={12} md={3}>
-                <TextField label="Kgs" type="number" fullWidth value={kgs} onChange={(event) => setKgs(event.target.value)} required />
+                <TextField
+                  label="Kgs"
+                  type="number"
+                  fullWidth
+                  value={kgs}
+                  onChange={(event) => setKgs(event.target.value)}
+                  helperText={`Tons: ${formatTons(enteredTons)}`}
+                  required
+                />
               </Grid>
               <Grid item xs={12} md={3}>
                 <TextField
@@ -267,16 +279,15 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                 />
               </Grid>
               <Grid item xs={12} md={3}>
-                <TextField label="Status" select fullWidth value={statusId} onChange={(event) => setStatusId(event.target.value)}>
-                  {statuses.map((status) => (
-                    <MenuItem key={status.StatusId} value={status.StatusId}>
-                      {status.Status}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <TextField label="Notes" fullWidth value={notes} onChange={(event) => setNotes(event.target.value)} />
               </Grid>
               <Grid item xs={12} md={3}>
-                <TextField label="Notes" fullWidth value={notes} onChange={(event) => setNotes(event.target.value)} />
+                <Typography variant="body2" color="text.secondary">
+                  Tons
+                </Typography>
+                <Typography variant="h5" fontWeight={700} color="primary.main">
+                  {formatTons(enteredTons)}
+                </Typography>
               </Grid>
             </Grid>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
@@ -289,7 +300,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
             </Stack>
           </Box>
 
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
             Current items
           </Typography>
 
@@ -305,21 +316,25 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                 <Paper key={item.OrderItemId} variant="outlined" sx={{ p: 2 }}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1.5}>
                     <Box>
-                      <Typography variant="subtitle2">{itemLookup[item.ItemId] || `Item #${item.ItemId}`}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Bags: {item.Bags} • Kgs: {item.Kgs} • Rate: {item.Rate}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Condition: {item.Condition || 'Good'} • Notes: {item.Notes || '—'}
+                      <Typography variant="body1" color="text.secondary">
+                        <Box component="span" fontWeight={700} color="text.primary">
+                          {itemLookup[item.ItemId] || `Item #${item.ItemId}`} :
+                        </Box>{' '}
+                        {item.Bags} Bags ({item.Kgs} kgs) = {formatTons(Number(item.Bags || 0) * Number(item.Kgs || 0) / 1000)} Tons @ {item.Rate}
+                        {item.Notes ? ` - ${item.Notes}` : ''}
                       </Typography>
                     </Box>
                     <Stack direction="row" spacing={1}>
-                      <Button size="small" variant="outlined" startIcon={<EditRoundedIcon />} onClick={() => handleEdit(item)}>
-                        Edit
-                      </Button>
-                      <Button size="small" variant="outlined" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => handleDelete(item)}>
-                        Delete
-                      </Button>
+                      <Tooltip title="Edit item">
+                        <IconButton color="primary" onClick={() => handleEdit(item)} aria-label="Edit item">
+                          <EditRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete item">
+                        <IconButton color="error" onClick={() => handleDelete(item)} aria-label="Delete item">
+                          <DeleteOutlineRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Stack>
                   </Stack>
                 </Paper>
