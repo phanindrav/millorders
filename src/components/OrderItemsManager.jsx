@@ -300,27 +300,38 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
             </Stack>
           </Box>
 
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
             Current items
           </Typography>
 
           {loading ? (
             <Typography color="text.secondary">Loading items…</Typography>
           ) : items.length === 0 ? (
-            <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+            <Paper variant="outlined" sx={{ p: 1, textAlign: 'center', color: 'text.secondary' }}>
               No items have been added to this order yet.
             </Paper>
           ) : (
-            <Stack spacing={1.5}>
+            <Stack spacing={0.5}>
               {items.map((item) => (
-                <Paper key={item.OrderItemId} variant="outlined" sx={{ p: 2 }}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1.5}>
+                <Paper key={item.OrderItemId} variant="outlined" sx={{ p: 1 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={0.5}>
                     <Box>
-                      <Typography variant="body1" color="text.secondary">
-                        <Box component="span" fontWeight={700} color="text.primary">
+                      <Typography variant="body1" sx={{ color: 'success.main' }}>
+                        <Box component="span" fontWeight={700}>
                           {itemLookup[item.ItemId] || `Item #${item.ItemId}`} :
                         </Box>{' '}
-                        {item.Bags} Bags ({item.Kgs} kgs) = {formatTons(Number(item.Bags || 0) * Number(item.Kgs || 0) / 1000)} Tons @ {item.Rate}
+                        <Box component="span" fontWeight={700} fontSize="1.1rem">
+                          {item.Bags}
+                        </Box>{' '}Bags ({' '}
+                        <Box component="span" fontWeight={700} fontSize="1.1rem">
+                          {item.Kgs}
+                        </Box>{' '}kgs) ={' '}
+                        <Box component="span" fontWeight={700} fontSize="1.1rem">
+                          {formatTons(Number(item.Bags || 0) * Number(item.Kgs || 0) / 1000)}
+                        </Box>{' '}Tons @{' '}
+                        <Box component="span" fontWeight={700} fontSize="1.1rem">
+                          {item.Rate}
+                        </Box>
                         {item.Notes ? ` - ${item.Notes}` : ''}
                       </Typography>
                     </Box>
