@@ -131,8 +131,16 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
     }, {});
   }, [catalog]);
 
-  const enteredTons = (Number(bags) || 0) * (Number(kgs) || 0) / 1000;
-  const formatTons = (value) => Number(value || 0).toFixed(3);
+  const enteredQuintals = (Number(bags) || 0) * (Number(kgs) || 0) / 100;
+  const enteredAmount = enteredQuintals * (Number(rate) || 0);
+  const formatQuintals = (value) => Number(value || 0).toFixed(2);
+  const getItemQuintals = (item) => Number(item.Bags || 0) * Number(item.Kgs || 0) / 100;
+  const getItemTotal = (item) => getItemQuintals(item) * Number(item.Rate || 0);
+  const totalAmount = items.reduce((total, item) => total + getItemTotal(item), 0);
+  const formatAmount = (value) => Number(value || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   const resetForm = () => {
     setSelectedItem(null);
@@ -224,7 +232,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Box>
@@ -251,24 +259,34 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                   renderInput={(params) => <TextField {...params} inputRef={itemInputRef} label="Item" required />}
                 />
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={2}>
                 <TextField label="Bags" type="number" fullWidth value={bags} onChange={(event) => setBags(event.target.value)} required />
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={2}>
                 <TextField label="Rate" type="number" fullWidth value={rate} onChange={(event) => setRate(event.target.value)} required />
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={2}>
                 <TextField
                   label="Kgs"
                   type="number"
                   fullWidth
                   value={kgs}
                   onChange={(event) => setKgs(event.target.value)}
-                  helperText={`Tons: ${formatTons(enteredTons)}`}
+                  helperText={`Quintals: ${formatQuintals(enteredQuintals)}`}
                   required
                 />
               </Grid>
               <Grid item xs={12} md={3}>
+                <Stack direction="row" spacing={1.5} sx={{ height: '100%' }}>
+                  <Button type="submit" variant="contained" startIcon={<AddCircleOutlineRoundedIcon />} sx={{ flex: 1 }}>
+                    {editItemId ? 'Update item' : 'Add item'}
+                  </Button>
+                  <Button variant="outlined" onClick={resetForm} sx={{ flex: 1 }}>
+                    Clear
+                  </Button>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} md={2}>
                 <TextField
                   label="Condition"
                   type="number"
@@ -281,23 +299,27 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
               <Grid item xs={12} md={3}>
                 <TextField label="Notes" fullWidth value={notes} onChange={(event) => setNotes(event.target.value)} />
               </Grid>
-              <Grid item xs={12} md={3}>
-                <Typography variant="body2" color="text.secondary">
-                  Tons
-                </Typography>
-                <Typography variant="h5" fontWeight={700} color="primary.main">
-                  {formatTons(enteredTons)}
-                </Typography>
+              <Grid item xs={12} md={2}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Quintals
+                  </Typography>
+                  <Typography variant="h5" fontWeight={700} color="primary.main">
+                    {formatQuintals(enteredQuintals)}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Total amount
+                  </Typography>
+                  <Typography variant="h5" fontWeight={700} color="success.main">
+                    ₹{formatAmount(enteredAmount)}
+                  </Typography>
+                </Box>
               </Grid>
             </Grid>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 2 }}>
-              <Button type="submit" variant="contained" startIcon={<AddCircleOutlineRoundedIcon />}>
-                {editItemId ? 'Update item' : 'Add item'}
-              </Button>
-              <Button variant="outlined" onClick={resetForm}>
-                Clear
-              </Button>
-            </Stack>
           </Box>
 
           <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
@@ -327,11 +349,12 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                           {item.Kgs}
                         </Box>{' '}kgs) ={' '}
                         <Box component="span" fontWeight={700} fontSize="1.1rem">
-                          {formatTons(Number(item.Bags || 0) * Number(item.Kgs || 0) / 1000)}
-                        </Box>{' '}Tons @{' '}
+                          {formatQuintals(Number(item.Bags || 0) * Number(item.Kgs || 0) / 100)}
+                        </Box>{' '}Quintals @{' '}
                         <Box component="span" fontWeight={700} fontSize="1.1rem">
                           {item.Rate}
                         </Box>
+                        {' '}| {getItemQuintals(item).toFixed(2)} Qtls × {item.Rate} = ₹{formatAmount(getItemTotal(item))}
                         {item.Notes ? ` - ${item.Notes}` : ''}
                       </Typography>
                     </Box>
@@ -350,6 +373,9 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                   </Stack>
                 </Paper>
               ))}
+              <Typography variant="subtitle1" fontWeight={700} textAlign="right" sx={{ pt: 1 }}>
+                Order total: ₹{formatAmount(totalAmount)}
+              </Typography>
             </Stack>
           )}
         </DialogContent>
