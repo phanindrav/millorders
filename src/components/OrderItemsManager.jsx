@@ -14,6 +14,12 @@ import {
   Paper,
   Snackbar,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -136,6 +142,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
   const formatQuintals = (value) => Number(value || 0).toFixed(2);
   const getItemQuintals = (item) => Number(item.Bags || 0) * Number(item.Kgs || 0) / 100;
   const getItemTotal = (item) => getItemQuintals(item) * Number(item.Rate || 0);
+  const totalQuintals = items.reduce((total, item) => total + getItemQuintals(item), 0);
   const totalAmount = items.reduce((total, item) => total + getItemTotal(item), 0);
   const formatAmount = (value) => Number(value || 0).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
@@ -333,50 +340,75 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
               No items have been added to this order yet.
             </Paper>
           ) : (
-            <Stack spacing={0.5}>
-              {items.map((item) => (
-                <Paper key={item.OrderItemId} variant="outlined" sx={{ p: 1 }}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={0.5}>
-                    <Box>
-                      <Typography variant="body1" sx={{ color: 'success.main' }}>
-                        <Box component="span" fontWeight={700}>
-                          {itemLookup[item.ItemId] || `Item #${item.ItemId}`} :
-                        </Box>{' '}
-                        <Box component="span" fontWeight={700} fontSize="1.1rem">
-                          {item.Bags}
-                        </Box>{' '}Bags ({' '}
-                        <Box component="span" fontWeight={700} fontSize="1.1rem">
-                          {item.Kgs}
-                        </Box>{' '}kgs) ={' '}
-                        <Box component="span" fontWeight={700} fontSize="1.1rem">
-                          {formatQuintals(Number(item.Bags || 0) * Number(item.Kgs || 0) / 100)}
-                        </Box>{' '}Quintals @{' '}
-                        <Box component="span" fontWeight={700} fontSize="1.1rem">
-                          {item.Rate}
-                        </Box>
-                        {' '}| {getItemQuintals(item).toFixed(2)} Qtls × {item.Rate} = ₹{formatAmount(getItemTotal(item))}
-                        {item.Notes ? ` - ${item.Notes}` : ''}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1}>
-                      <Tooltip title="Edit item">
-                        <IconButton color="primary" onClick={() => handleEdit(item)} aria-label="Edit item">
-                          <EditRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete item">
-                        <IconButton color="error" onClick={() => handleDelete(item)} aria-label="Delete item">
-                          <DeleteOutlineRoundedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </Stack>
-                </Paper>
-              ))}
-              <Typography variant="subtitle1" fontWeight={700} textAlign="right" sx={{ pt: 1 }}>
-                Order total: ₹{formatAmount(totalAmount)}
-              </Typography>
-            </Stack>
+            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 360 }}>
+              <Table
+                size="small"
+                stickyHeader
+                sx={{
+                  minWidth: 760,
+                  '& .MuiTableCell-head': {
+                    color: 'success.dark',
+                    fontWeight: 700,
+                  },
+                }}
+              >
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Item</TableCell>
+                    <TableCell align="right">Bags</TableCell>
+                    <TableCell align="right">Kgs</TableCell>
+                    <TableCell align="right">Quintals</TableCell>
+                    <TableCell align="right">Rate</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.OrderItemId} hover>
+                      <TableCell>
+                        <Typography fontWeight={600}>
+                          {itemLookup[item.ItemId] || `Item #${item.ItemId}`}
+                        </Typography>
+                        {item.Notes ? (
+                          <Typography variant="caption" color="text.secondary">
+                            {item.Notes}
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                      <TableCell align="right" sx={{ color: 'success.dark', fontWeight: 700 }}>
+                        {item.Bags}
+                      </TableCell>
+                      <TableCell align="right">{item.Kgs}</TableCell>
+                      <TableCell align="right">{formatQuintals(getItemQuintals(item))}</TableCell>
+                      <TableCell align="right" sx={{ color: 'success.dark', fontWeight: 700 }}>
+                        {item.Rate}
+                      </TableCell>
+                      <TableCell align="right">₹{formatAmount(getItemTotal(item))}</TableCell>
+                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        <Tooltip title="Edit item">
+                          <IconButton color="primary" onClick={() => handleEdit(item)} aria-label="Edit item" size="small">
+                            <EditRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete item">
+                          <IconButton color="error" onClick={() => handleDelete(item)} aria-label="Delete item" size="small">
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow sx={{ '& td': { fontWeight: 700, bgcolor: 'action.hover' } }}>
+                    <TableCell colSpan={3}>Total</TableCell>
+                    <TableCell align="right">{formatQuintals(totalQuintals)}</TableCell>
+                    <TableCell />
+                    <TableCell align="right">₹{formatAmount(totalAmount)}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </DialogContent>
         <DialogActions>
