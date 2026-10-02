@@ -331,13 +331,13 @@ function App() {
                             bgcolor: "grey.100",
                           }}
                         >
-                          <TableCell sx={{ fontWeight: 700 }}>
+                          <TableCell sx={{ fontWeight: 700, fontSize: "1.1rem" }}>
                             Item
                           </TableCell>
 
                           <TableCell
                             align="right"
-                            sx={{ fontWeight: 700 }}
+                            sx={{ fontWeight: 700, fontSize: "1.1rem" }}
                           >
                             Qtls
                           </TableCell>
@@ -370,7 +370,7 @@ function App() {
                                     : "grey.50",
                               }}
                             >
-                              <TableCell sx={{ fontWeight: 500 }}>
+                              <TableCell sx={{ fontWeight: 500, fontSize: "1.1rem" }}>
                                 {row.ItemName}
                               </TableCell>
 
@@ -379,7 +379,7 @@ function App() {
                                 sx={{
                                   fontWeight: "bold",
                                   color: "primary.main",
-                                  fontSize: "1rem",
+                                  fontSize: "1.1rem",
                                 }}
                               >
                                 {formatNumber(row.Quintals)}
@@ -392,7 +392,7 @@ function App() {
                             "& td": {
                               color: "green",
                               fontWeight: "bold",
-                              fontSize: "1rem",
+                              fontSize: "1.1rem",
                             },
                           }}
                         >
