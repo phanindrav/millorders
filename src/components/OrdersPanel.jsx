@@ -394,9 +394,16 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                     options={shops}
                     value={selectedShop}
                     getOptionLabel={(option) => `${option.ShopName || ''}${option.Place ? ` • ${option.Place}` : ''}`}
+                    filterOptions={(options, { inputValue }) => {
+                      const searchTerms = inputValue.trim().toLowerCase().split(/\s+/).filter(Boolean);
+                      return options.filter((shop) => {
+                        const searchableText = `${shop.ShopName || ''} ${shop.Place || ''} ${shop.Address || ''}`.toLowerCase();
+                        return searchTerms.every((term) => searchableText.includes(term));
+                      });
+                    }}
                     isOptionEqualToValue={(option, value) => String(option.ShopId) === String(value?.ShopId)}
                     onChange={(_, value) => setSelectedShop(value)}
-                    renderInput={(params) => <TextField {...params} label="Shop" />}
+                    renderInput={(params) => <TextField {...params} label="Shop" placeholder="Search by shop or place" />}
                   />
                 )}
               </Grid>
@@ -448,7 +455,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
       <Box sx={{ mt: 3 }}>
         <TextField
           label="Search orders"
-          placeholder="Search by order ID, agent, shop, address, or item"
+          placeholder="Search by order ID, agent, shop, place, address, or item"
           fullWidth
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
