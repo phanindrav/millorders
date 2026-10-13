@@ -868,7 +868,11 @@ function App() {
             </Grid>
           </Grid>
         ) : activeView === 'orders' ? (
-          <OrdersPanel agents={agents} initialAgentId={agents[0]?.AgentId || ''} />
+          <OrdersPanel
+            agents={agents}
+            agentSummary={agentSummary}
+            initialAgentId={agents[0]?.AgentId || ''}
+          />
         ) : activeView === 'delivered' ? (
           <DeliveredOrdersPanel />
         ) : activeView === 'agents' ? (

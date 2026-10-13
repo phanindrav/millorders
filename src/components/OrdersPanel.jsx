@@ -71,7 +71,7 @@ function addDaysToDate(dateString, days) {
   return toDateInputValue(date);
 }
 
-function OrdersPanel({ agents = [], initialAgentId = '' }) {
+function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
   const [selectedAgentId, setSelectedAgentId] = useState(initialAgentId || agents[0]?.AgentId || '');
   const [shops, setShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
@@ -157,6 +157,19 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
       : agents.find((agent) => String(agent.AgentId) === String(selectedAgentId)) || null,
     [agents, selectedAgentId]
   );
+  const getAgentOptionLabel = (option) => {
+    if (!option?.AgentName) return '';
+    if (String(option.AgentId) === 'all') return option.AgentName;
+
+    const summary = agentSummary.find(
+      (agent) => String(agent.agentId) === String(option.AgentId)
+    );
+    const quintals = Number(summary?.quintals || 0).toLocaleString('en-IN', {
+      maximumFractionDigits: 2,
+    });
+
+    return `${option.AgentName} (${quintals})`;
+  };
 
   const filteredOrders = useMemo(() => {
     const searchTerms = searchValue.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -367,7 +380,7 @@ function OrdersPanel({ agents = [], initialAgentId = '' }) {
                 <Autocomplete
                   options={[ALL_AGENTS_OPTION, ...agents]}
                   value={selectedAgentOption}
-                  getOptionLabel={(option) => option?.AgentName || ''}
+                  getOptionLabel={getAgentOptionLabel}
                   isOptionEqualToValue={(option, value) => String(option.AgentId) === String(value?.AgentId)}
                   onChange={(_, value) => {
                     setSelectedAgentId(value?.AgentId || '');
