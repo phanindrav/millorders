@@ -290,7 +290,7 @@ function App() {
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
         {activeView === 'overview' ? (
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={3}>
               <Card
                 elevation={6}
                 sx={{
@@ -339,7 +339,7 @@ function App() {
                             align="right"
                             sx={{ fontWeight: 700, fontSize: "1.1rem" }}
                           >
-                            Qtls
+                            Quintals
                           </TableCell>
                         </TableRow>
                       </TableHead>
@@ -408,6 +408,100 @@ function App() {
                 </CardContent>
               </Card>
             </Grid>
+            <Grid item xs={12} md={3}>
+              <Card
+                elevation={6}
+                sx={{
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  transition: "0.3s",
+                  "&:hover": {
+                    transform: "translateY(-3px)",
+                    boxShadow: 8,
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "white",
+                    px: 3,
+                    py: 2,
+                  }}
+                >
+                  <Typography variant="h6" fontWeight="bold">
+                    Agent Order Summary
+                  </Typography>
+
+                  <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                    Pending order totals by agent
+                  </Typography>
+                </Box>
+
+                <CardContent sx={{ p: 0 }}>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: "grey.100" }}>
+                          <TableCell sx={{ fontWeight: 700, fontSize: "1.1rem" }}>Agent</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: "1.1rem" }}>
+                            Quintals
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+
+                      <TableBody>
+                        {groupedAgentSummary.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={2} align="center" sx={{ fontSize: "1.1rem" }}>
+                              {agentSearch.trim() ? 'No agents match your search.' : 'No pending orders'}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          groupedAgentSummary.map((agent) => (
+                            <TableRow key={agent.agentId} hover>
+                              <TableCell sx={{ fontWeight: 500, fontSize: "1.1rem" }}>
+                                {agent.agentName}
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{
+                                  fontWeight: "bold",
+                                  color: "primary.main",
+                                  fontSize: "1.1rem",
+                                }}
+                              >
+                                {formatNumber(agent.quintals)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+
+                        <TableRow
+                          sx={{
+                            "& td": {
+                              fontWeight: "bold",
+                              color: "green",
+                              fontSize: "1.1rem",
+                            },
+                          }}
+                        >
+                          <TableCell>Grand Total</TableCell>
+                          <TableCell align="right">
+                            {formatNumber(
+                              groupedAgentSummary.reduce(
+                                (sum, agent) => sum + Number(agent.quintals || 0),
+                                0
+                              )
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            </Grid>
              <Grid item xs={12} md={6}>
               <Card
                 elevation={6}
@@ -471,7 +565,7 @@ function App() {
                             align="right"
                             sx={{ fontWeight: 700 }}
                           >
-                            Qtls
+                            Quintals
                           </TableCell>
                         </TableRow>
                       </TableHead>
@@ -603,11 +697,11 @@ function App() {
                   }}
                 >
                   <Typography variant="h6" fontWeight="bold">
-                    Agent Order Summary
+                    Agent Order Details
                   </Typography>
 
                   <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                    Pending Orders by Agent
+                    Pending orders by agent, rice, and brand
                   </Typography>
                 </Box>
 

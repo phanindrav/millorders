@@ -183,7 +183,7 @@ app.get('/api/reports/agent-summary/:agentId', authenticateToken, (req, res) => 
     LEFT JOIN Status st ON st.StatusId = oi.StatusId
     WHERE st.StatusId IN (1,2) AND o.DeliveryDate IS NULL
     ${!isAll ? 'AND s.AgentId = ?' : ''}
-    ORDER BY a.AgentName, r.Odr, b.Odr, oi.Kgs, o.Date, o.OrderId
+    ORDER BY a.AgentName, a.AgentId, o.Date, o.OrderId, r.Odr, b.Odr, oi.Kgs
   `;
 
   db.all(sql, params, (err, rows) => {

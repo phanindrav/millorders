@@ -19,6 +19,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableFooter,
   TableHead,
   TableRow,
   Tabs,
@@ -540,44 +541,58 @@ function ReportsPanel() {
     const grouped = new Map();
 
     agentReport.forEach((row) => {
-      const agentName = row.AgentName || 'Unknown Agent';
-      if (!grouped.has(agentName)) {
-        grouped.set(agentName, []);
+      const agentId = row.AgentId ?? row.AgentName ?? 'unknown';
+      const key = String(agentId);
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          agentId: key,
+          agentName: row.AgentName || 'Unknown Agent',
+          rows: [],
+        });
       }
-      grouped.get(agentName).push(row);
+      grouped.get(key).rows.push(row);
     });
 
-    return Array.from(grouped.entries())
-      .map(([agentName, rows]) => {
-        const rowCounts = {};
-        const totalsByOrder = {};
+    return Array.from(grouped.values())
+      .map(({ agentId, agentName, rows }) => {
+        const orders = new Map();
         let grandTotalQuintals = 0;
         let grandTotalAmount = 0;
 
         rows.forEach((row) => {
-          const orderId = row.OrderId;
-          rowCounts[orderId] = (rowCounts[orderId] || 0) + 1;
-
-          if (!totalsByOrder[orderId]) {
-            totalsByOrder[orderId] = { quintals: 0, amount: 0 };
+          const orderId = String(row.OrderId);
+          if (!orders.has(orderId)) {
+            orders.set(orderId, {
+              orderId: row.OrderId,
+              date: row.Date,
+              rows: [],
+              quintals: 0,
+              amount: 0,
+            });
           }
 
-          totalsByOrder[orderId].quintals += Number(row.Quintals || 0);
-          totalsByOrder[orderId].amount += Number(row.Amount || 0);
+          const order = orders.get(orderId);
+          order.rows.push(row);
+          order.quintals += Number(row.Quintals || 0);
+          order.amount += Number(row.Amount || 0);
           grandTotalQuintals += Number(row.Quintals || 0);
           grandTotalAmount += Number(row.Amount || 0);
         });
 
         return {
+          agentId,
           agentName,
-          rows,
-          rowCounts,
-          totalsByOrder,
+          orders: Array.from(orders.values()).sort((a, b) => {
+            const dateDifference = Date.parse(a.date) - Date.parse(b.date);
+            if (Number.isFinite(dateDifference) && dateDifference !== 0) return dateDifference;
+            if (a.date !== b.date) return String(a.date || '').localeCompare(String(b.date || ''));
+            return String(a.orderId).localeCompare(String(b.orderId), undefined, { numeric: true });
+          }),
           grandTotalQuintals,
           grandTotalAmount,
         };
       })
-      .sort((a, b) => a.agentName.localeCompare(b.agentName));
+      .sort((a, b) => a.agentName.localeCompare(b.agentName) || a.agentId.localeCompare(b.agentId));
   }, [agentReport]);
 
   const selectedAgentName = useMemo(() => {
@@ -783,47 +798,49 @@ function ReportsPanel() {
     const allAgentHtml = allAgentSections.length
       ? allAgentSections
           .map((section) => {
-            let lastOrderId = null;
-
-            const rowsHtml = section.rows
-              .map((row) => {
-                const currentOrderId = row.OrderId;
-                const isFirstRowOfOrder = lastOrderId !== currentOrderId;
-                lastOrderId = currentOrderId;
-
-                return `
+            const rowsHtml = section.orders
+              .map((order) => order.rows
+                .map((row, index) => `
                   <tr>
-                    ${isFirstRowOfOrder ? `<td rowspan="${section.rowCounts[currentOrderId]}" style="vertical-align:top; font-weight:700; background:#f7f7f7; font-size:10px;">${row.ShopName || '—'}${row.Place ? `, ${row.Place}` : ''}<br />${row.PhoneNumber || ''}<br /><span style="font-weight:600;">Order: ${row.OrderId}</span> - ${formatDate(row.Date)}<br />Qtls: ${formatNumber(section.totalsByOrder[currentOrderId]?.quintals || 0)}, ₹: ${Number(section.totalsByOrder[currentOrderId]?.amount || 0).toLocaleString('en-IN')}</td>` : ''}
-                    <td style="font-size:10px;">${row.ItemName || '—'} - ${row.Brand || '—'}${row.Notes ? `<br /><i>${row.Notes}</i>` : ''}</td>
-                    <td style="text-align:right; font-size:10px;">${row.Bags || 0}</td>
-                    <td style="text-align:right; font-size:10px;">${formatNumber(row.Kgs)}</td>
-                    <td style="text-align:right; font-size:10px;">${formatNumber(row.Quintals)}</td>
-                    <td style="text-align:right; font-size:10px;">${row.Rate || 0}</td>
+                    ${index === 0 ? `
+                      <td rowspan="${order.rows.length}" style="vertical-align:top; font-weight:700; background:#f7f7f7;">${row.ShopName || '—'}${row.Place ? `, ${row.Place}` : ''}<br />${row.PhoneNumber || ''}</td>
+                      <td rowspan="${order.rows.length}" style="vertical-align:top;">${formatDate(row.Date)}</td>
+                      <td rowspan="${order.rows.length}" style="vertical-align:top;">${row.OrderId || '—'}</td>
+                      <td rowspan="${order.rows.length}" style="vertical-align:top; text-align:right;">${formatNumber(order.quintals)}</td>
+                    ` : ''}
+                    <td>${row.ItemName || '—'} - ${row.Brand || '—'}${row.Notes ? `<br /><i>${row.Notes}</i>` : ''}</td>
+                    <td style="text-align:right;">${row.Bags || 0}</td>
+                    <td style="text-align:right;">${formatNumber(row.Kgs)}</td>
+                    <td style="text-align:right;">${formatNumber(row.Quintals)}</td>
+                    <td style="text-align:right;">${row.Rate ?? 0} : ${row.Condition || '—'}</td>
                   </tr>
-                `;
-              })
+                `)
+                .join(''))
               .join('');
 
             return `
               <div class="agent-section" style="margin-bottom:10px;">
-                <h3 style="margin:0 0 6px 0; line-height:1.2;">${section.agentName}</h3>
-                <table style="width:100%; border-collapse:collapse; margin:0 0 8px 0; font-size:10px;">
+                <h3 style="margin:0 0 8px 0; line-height:1.2;">${section.agentName} - ${formatDate(new Date().toISOString())}</h3>
+                <table>
                   <thead>
                     <tr>
-                      <th style="border:1px solid #333; padding:6px 8px; text-align:left; background:#f3f3f3; font-size:10px;">Order</th>
-                      <th style="border:1px solid #333; padding:6px 8px; text-align:left; background:#f3f3f3; font-size:10px;">Item - Brand</th>
-                      <th style="border:1px solid #333; padding:6px 8px; text-align:right; background:#f3f3f3; font-size:10px;">Bags</th>
-                      <th style="border:1px solid #333; padding:6px 8px; text-align:right; background:#f3f3f3; font-size:10px;">Kgs</th>
-                      <th style="border:1px solid #333; padding:6px 8px; text-align:right; background:#f3f3f3; font-size:10px;">Qtls</th>
-                      <th style="border:1px solid #333; padding:6px 8px; text-align:right; background:#f3f3f3; font-size:10px;">Rate</th>
+                      <th>Order</th>
+                      <th>Date</th>
+                      <th>Order ID</th>
+                      <th style="text-align:right;">Total Qtls</th>
+                      <th>Item - Brand</th>
+                      <th style="text-align:right;">Bags</th>
+                      <th style="text-align:right;">Kgs</th>
+                      <th style="text-align:right;">Qtls</th>
+                      <th style="text-align:right;">Rate</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${rowsHtml}
                     <tr style="font-weight:700; background:#f6f6f6;">
-                      <td colspan="4" style="border:1px solid #333; padding:6px 8px; text-align:right; font-size:10px;">Grand Total</td>
-                      <td style="border:1px solid #333; padding:6px 8px; text-align:right; font-size:10px;">${formatNumber(section.grandTotalQuintals)}</td>
-                      <td style="border:1px solid #333; padding:6px 8px; text-align:right; font-size:10px;">&nbsp;</td>
+                      <td colspan="7" style="text-align:right;">Grand Total</td>
+                      <td style="text-align:right;">${formatNumber(section.grandTotalQuintals)}</td>
+                      <td>&nbsp;</td>
                     </tr>
                   </tbody>
                 </table>
@@ -839,15 +856,19 @@ function ReportsPanel() {
         <head>
           <title>${reportTitle}</title>
           <style>
+            @page {
+              size: landscape;
+              margin: 12mm;
+            }
             body {
               font-family: Arial, sans-serif;
-              margin: 12px 18px;
+              margin: 0;
               color: #111;
-              font-size: 10px;
+              font-size: 12pt;
             }
             h2, h3 {
-              margin: 0 0 6px 0;
-              font-size: 14px;
+              margin: 0 0 8px 0;
+              font-size: 12pt;
               line-height: 1.2;
             }
             .header {
@@ -860,25 +881,35 @@ function ReportsPanel() {
             table {
               width: 100%;
               border-collapse: collapse;
-              margin: 0 0 8px 0;
+              margin: 0 0 12px 0;
               page-break-inside: auto;
-              font-size: 10px;
+              font-size: 12pt;
             }
             thead {
               display: table-header-group;
             }
             th, td {
               border: 1px solid #333;
-              padding: 6px 8px;
+              padding: 7px 9px;
               text-align: left;
               vertical-align: top;
-              font-size: 10px;
+              font-size: 12pt;
             }
             th {
               background: #f3f3f3;
               font-weight: 700;
             }
             .muted { color: #444; }
+            @media print {
+              .agent-section {
+                break-inside: auto;
+                page-break-inside: auto;
+              }
+              tr {
+                break-inside: avoid;
+                page-break-inside: avoid;
+              }
+            }
           </style>
         </head>
         <body>
@@ -1534,45 +1565,43 @@ function ReportsPanel() {
                 </Card>
               ) : (
                 allAgentSections.map((section) => (
-                  <Card key={section.agentName} variant="outlined">
+                  <Card key={section.agentId} variant="outlined">
                     <CardContent>
                       <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 700 }}>
                         {section.agentName} - {formatDate(new Date().toISOString())}
                       </Typography>
 
                       <TableContainer component={Paper} variant="outlined">
-                        <Table size="small">
+                        <Table size="small" sx={{ '& .MuiTableCell-root': { fontSize: '1rem', py: 1.25 } }}>
                           <TableHead>
                             <TableRow>
-                              <TableCell sx={{ minWidth: 180 }}>Order</TableCell>
-                              <TableCell>Item - Brand</TableCell>
-                              <TableCell align="right">Bags</TableCell>
-                              <TableCell align="right">Kgs</TableCell>
-                              <TableCell align="right">Qtls</TableCell>
-                              <TableCell align="right">Rate : Condition</TableCell>
+                              <TableCell sx={{ minWidth: 180, fontWeight: 700, fontSize: '1rem' }}>Order</TableCell>
+                              <TableCell sx={{ fontWeight: 700, fontSize: '1rem' }}>Date</TableCell>
+                              <TableCell sx={{ fontWeight: 700, fontSize: '1rem' }}>Order ID</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>Total Qtls</TableCell>
+                              <TableCell sx={{ fontWeight: 700, fontSize: '1rem' }}>Item - Brand</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>Bags</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>Kgs</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>Qtls</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1rem' }}>Rate</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {(() => {
-                              let lastOrderId = null;
-                              return section.rows.map((row, index) => {
-                                const currentOrderId = row.OrderId;
-                                const isFirstRowOfOrder = lastOrderId !== currentOrderId;
-                                lastOrderId = currentOrderId;
-
-                                return (
-                                  <TableRow key={`${section.agentName}-${currentOrderId}-${row.ItemName}-${index}`}>
-                                    {isFirstRowOfOrder ? (
-                                      <TableCell rowSpan={section.rowCounts[currentOrderId]} sx={{ verticalAlign: 'top', fontWeight: 600, backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                            {section.orders.flatMap((order) =>
+                              order.rows.map((row, index) => (
+                                  <TableRow key={`${section.agentId}-${order.orderId}-${row.ItemName}-${index}`}>
+                                    {index === 0 ? (
+                                      <TableCell rowSpan={order.rows.length} sx={{ verticalAlign: 'top', fontWeight: 600, backgroundColor: 'rgba(0,0,0,0.02)' }}>
                                         <Box component="span" sx={{ display: 'block', fontWeight: 700 }}>{row.ShopName}{row.Place ? ` - ${row.Place}` : ''}</Box>
                                         {row.PhoneNumber ? <Box component="span" sx={{ display: 'block' }}>{row.PhoneNumber}</Box> : null}
-                                        <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
-                                          Order: <b>{row.OrderId}</b> - {formatDate(row.Date)}
-                                        </Box>
-                                        <Box component="span" sx={{ display: 'block' }}>
-                                          Qtls: {formatNumber(section.totalsByOrder[currentOrderId]?.quintals || 0)}, ₹: {Number(section.totalsByOrder[currentOrderId]?.amount || 0).toLocaleString('en-IN')}
-                                        </Box>
                                       </TableCell>
+                                    ) : null}
+                                    {index === 0 ? (
+                                      <>
+                                        <TableCell rowSpan={order.rows.length} sx={{ verticalAlign: 'top' }}>{formatDate(row.Date)}</TableCell>
+                                        <TableCell rowSpan={order.rows.length} sx={{ verticalAlign: 'top' }}>{row.OrderId}</TableCell>
+                                        <TableCell rowSpan={order.rows.length} align="right" sx={{ verticalAlign: 'top' }}>{formatNumber(order.quintals)}</TableCell>
+                                      </>
                                     ) : null}
 
                                     <TableCell>
@@ -1584,17 +1613,16 @@ function ReportsPanel() {
                                     <TableCell align="right">{formatNumber(row.Quintals)}</TableCell>
                                     <TableCell align="right">{row.Rate} : {row.Condition}</TableCell>
                                   </TableRow>
-                                );
-                              });
-                            })()}
+                              ))
+                            )}
                           </TableBody>
-                          <TableHead>
+                          <TableFooter>
                             <TableRow>
-                              <TableCell colSpan={4} align="right" sx={{ fontWeight: 700 }}>Grand Total</TableCell>
+                              <TableCell colSpan={7} align="right" sx={{ fontWeight: 700 }}>Grand Total</TableCell>
                               <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(section.grandTotalQuintals)}</TableCell>
                               <TableCell />
                             </TableRow>
-                          </TableHead>
+                          </TableFooter>
                         </Table>
                       </TableContainer>
                     </CardContent>
