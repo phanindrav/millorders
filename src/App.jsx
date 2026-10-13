@@ -525,11 +525,11 @@ function App() {
                   }}
                 >
                   <Typography variant="h6" fontWeight="bold">
-                    Item Order Summary
+                    Item &amp; Brand Order Summary
                   </Typography>
 
                   <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                    Aggregated pending order quantities
+                    Pending quantities by item and brand
                   </Typography>
                 </Box>
 
@@ -543,27 +543,27 @@ function App() {
                             bgcolor: "grey.100",
                           }}
                         >
-                          <TableCell sx={{ fontWeight: 700 }}>
+                          <TableCell sx={{ fontWeight: 700, fontSize: "1.1rem" }}>
                             Item
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 700 }}>
+                          <TableCell sx={{ fontWeight: 700, fontSize: "1.1rem" }}>
                             Brand
                           </TableCell>
                           <TableCell
                             align="right"
-                            sx={{ fontWeight: 700 }}
+                            sx={{ fontWeight: 700, fontSize: "1.1rem" }}
                           >
                             Kgs
                           </TableCell>
                           <TableCell
                             align="right"
-                            sx={{ fontWeight: 700 }}
+                            sx={{ fontWeight: 700, fontSize: "1.1rem" }}
                           >
                             Bags
                           </TableCell>
                           <TableCell
                             align="right"
-                            sx={{ fontWeight: 700 }}
+                            sx={{ fontWeight: 700, fontSize: "1.1rem" }}
                           >
                             Quintals
                           </TableCell>
@@ -574,7 +574,7 @@ function App() {
 
                         {groupedBrandSummary.length === 0 ? (
                           <TableRow>
-                              <TableCell colSpan={5} align="center">
+                              <TableCell colSpan={5} align="center" sx={{ fontSize: "1.1rem" }}>
                                   No pending orders
                               </TableCell>
                           </TableRow>
@@ -601,17 +601,18 @@ function App() {
                                               sx={{
                                                   fontWeight: "bold",
                                                   verticalAlign: "top",
-                                                  bgcolor: "grey.100"
+                                                  bgcolor: "grey.100",
+                                                  fontSize: "1.1rem",
                                               }}
                                           >
-                                              <Typography variant="subtitle2" fontWeight="bold">
+                                              <Typography fontWeight="bold" sx={{ fontSize: "1.1rem" }}>
                                                 {item.ItemName}
                                               </Typography>
 
                                               <Typography
-                                                variant="caption"
                                                 color="primary.main"
                                                 fontWeight="bold"
+                                                sx={{ fontSize: "1.1rem" }}
                                               >
                                                 Total: {formatNumber(item.Quintals)} Qtls
                                               </Typography>
@@ -620,19 +621,19 @@ function App() {
                                       )}
 
                                         {index === 0 && (
-                                          <TableCell rowSpan={group.rows.length} sx={{ verticalAlign: "top" }}>
+                                          <TableCell rowSpan={group.rows.length} sx={{ verticalAlign: "top", fontSize: "1.1rem" }}>
                                           {group.brandName}
                                           </TableCell>
                                         )}
-                                      <TableCell align="right">
+                                      <TableCell align="right" sx={{ fontSize: "1.1rem" }}>
                                           {brand.Kgs}
                                       </TableCell>
 
-                                      <TableCell align="right">
+                                      <TableCell align="right" sx={{ fontSize: "1.1rem" }}>
                                           {brand.Bags}
                                       </TableCell>
 
-                                      <TableCell align="right">
+                                      <TableCell align="right" sx={{ fontSize: "1.1rem" }}>
                                           {formatNumber(brand.Quintals)}
                                       </TableCell>
 
@@ -648,7 +649,8 @@ function App() {
                           sx={{
                               "& td": {
                                   fontWeight: "bold",
-                                  color: "green"
+                                  color: "green",
+                                  fontSize: "1.1rem",
                               }
                           }}
                       >
