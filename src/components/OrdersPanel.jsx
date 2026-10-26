@@ -151,6 +151,22 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
     loadOrders(selectedAgentId);
   }, [selectedAgentId]);
 
+  const sortedAgents = useMemo(() => {
+    const quintalsByAgentId = new Map(
+      agentSummary.map((agent) => [String(agent.agentId), Number(agent.quintals) || 0])
+    );
+
+    return [...agents].sort((a, b) => {
+      const quintalDifference =
+        (quintalsByAgentId.get(String(b.AgentId)) || 0) -
+        (quintalsByAgentId.get(String(a.AgentId)) || 0);
+      if (quintalDifference !== 0) return quintalDifference;
+      return String(a.AgentName || '').localeCompare(String(b.AgentName || ''), undefined, {
+        sensitivity: 'base',
+      });
+    });
+  }, [agents, agentSummary]);
+
   const selectedAgentOption = useMemo(
     () => selectedAgentId === 'all'
       ? ALL_AGENTS_OPTION
@@ -378,7 +394,7 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
               </Grid>
               <Grid item xs={12} md={3}>
                 <Autocomplete
-                  options={[ALL_AGENTS_OPTION, ...agents]}
+                  options={[ALL_AGENTS_OPTION, ...sortedAgents]}
                   value={selectedAgentOption}
                   getOptionLabel={getAgentOptionLabel}
                   isOptionEqualToValue={(option, value) => String(option.AgentId) === String(value?.AgentId)}
