@@ -710,8 +710,14 @@ function App() {
                 <CardContent sx={{ p: 0 }}>
                   
                   <TableContainer>
-                    <Table size="small">
-
+                    <Table
+                      size="small"
+                      sx={{
+                        "& .MuiTableCell-root, & .MuiTypography-root": {
+                          fontSize: "1.1rem",
+                        },
+                      }}
+                    >
                       <TableHead>
                         <TableRow sx={{ bgcolor: "grey.100" }}>
                           <TableCell sx={{ fontWeight: 700 }}>Agent</TableCell>
@@ -873,7 +879,7 @@ function App() {
           <OrdersPanel
             agents={agents}
             agentSummary={agentSummary}
-            initialAgentId={agents[0]?.AgentId || ''}
+            initialAgentId="all"
           />
         ) : activeView === 'delivered' ? (
           <DeliveredOrdersPanel />
