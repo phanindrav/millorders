@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Chip,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -63,6 +64,8 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
   const [splitItem, setSplitItem] = useState(null);
   const [splitBags, setSplitBags] = useState('');
   const [splitSaving, setSplitSaving] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const [movingItems, setMovingItems] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [loading, setLoading] = useState(false);
   const itemInputRef = useRef(null);
@@ -112,6 +115,9 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
       const data = await response.json();
       const orderItems = (Array.isArray(data) ? data : []).filter((item) => String(item.OrderId) === String(order.OrderId));
       setItems(orderItems);
+      setSelectedItemIds((selectedIds) => selectedIds.filter((id) =>
+        orderItems.some((item) => String(item.OrderItemId) === String(id))
+      ));
     } catch (error) {
       console.error('Unable to load order items', error);
       setSnackbar({ open: true, message: 'Unable to load order items.', severity: 'error' });
@@ -167,6 +173,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
   useEffect(() => {
     if (!open) {
       resetForm();
+      setSelectedItemIds([]);
     }
   }, [open]);
 
@@ -280,6 +287,53 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
     }
   };
 
+  const toggleItemSelection = (itemId) => {
+    setSelectedItemIds((selectedIds) =>
+      selectedIds.some((id) => String(id) === String(itemId))
+        ? selectedIds.filter((id) => String(id) !== String(itemId))
+        : [...selectedIds, itemId]
+    );
+  };
+
+  const handleSelectAllItems = (event) => {
+    setSelectedItemIds(event.target.checked ? items.map((item) => item.OrderItemId) : []);
+  };
+
+  const handleMoveSelectedItems = async () => {
+    if (!order?.OrderId || selectedItemIds.length === 0) return;
+
+    const itemCount = selectedItemIds.length;
+    if (!window.confirm(`Move ${itemCount} selected item${itemCount === 1 ? '' : 's'} into a new order for the same shop on ${order.Date}?`)) {
+      return;
+    }
+
+    setMovingItems(true);
+    try {
+      const response = await fetch(`/orders/${order.OrderId}/items/move-to-new-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ itemIds: selectedItemIds }),
+      });
+      const data = await response.json();
+      if (!response.ok || data?.success === false || data?.error) {
+        throw new Error(data?.error || 'Unable to create the new order.');
+      }
+
+      await loadItems();
+      if (onRefresh) await onRefresh();
+      setSelectedItemIds([]);
+      setSnackbar({
+        open: true,
+        message: `Created order #${data.orderId} with ${itemCount} selected item${itemCount === 1 ? '' : 's'}.`,
+        severity: 'success',
+      });
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
+    } finally {
+      setMovingItems(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
@@ -372,9 +426,18 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
             </Grid>
           </Box>
 
-          <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>
-            Current items
-          </Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Current items
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleMoveSelectedItems}
+              disabled={!selectedItemIds.length || movingItems || loading}
+            >
+              {movingItems ? 'Creating order…' : `Create new order${selectedItemIds.length ? ` (${selectedItemIds.length})` : ''}`}
+            </Button>
+          </Stack>
 
           {loading ? (
             <Typography color="text.secondary">Loading items…</Typography>
@@ -397,6 +460,14 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
               >
                 <TableHead>
                   <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={items.length > 0 && selectedItemIds.length === items.length}
+                        indeterminate={selectedItemIds.length > 0 && selectedItemIds.length < items.length}
+                        onChange={handleSelectAllItems}
+                        inputProps={{ 'aria-label': 'Select all order items' }}
+                      />
+                    </TableCell>
                     <TableCell>Item</TableCell>
                     <TableCell align="right">Bags</TableCell>
                     <TableCell align="right">Kgs</TableCell>
@@ -408,7 +479,18 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                 </TableHead>
                 <TableBody>
                   {items.map((item) => (
-                    <TableRow key={item.OrderItemId} hover>
+                    <TableRow
+                      key={item.OrderItemId}
+                      hover
+                      selected={selectedItemIds.some((id) => String(id) === String(item.OrderItemId))}
+                    >
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedItemIds.some((id) => String(id) === String(item.OrderItemId))}
+                          onChange={() => toggleItemSelection(item.OrderItemId)}
+                          inputProps={{ 'aria-label': `Select ${itemLookup[item.ItemId] || `item ${item.OrderItemId}`}` }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Typography fontWeight={600}>
                           {itemLookup[item.ItemId] || `Item #${item.ItemId}`}
@@ -456,7 +538,7 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                     </TableRow>
                   ))}
                   <TableRow sx={{ '& td': { fontWeight: 700, bgcolor: 'action.hover' } }}>
-                    <TableCell colSpan={3}>Total</TableCell>
+                    <TableCell colSpan={4}>Total</TableCell>
                     <TableCell align="right">{formatQuintals(totalQuintals)}</TableCell>
                     <TableCell />
                     <TableCell align="right">₹{formatAmount(totalAmount)}</TableCell>

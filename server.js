@@ -1415,6 +1415,84 @@ app.post("/orders/:orderId/items/split/:id", (req, res) => {
   );
 });
 
+app.post("/orders/:orderId/items/move-to-new-order", (req, res) => {
+  const orderId = Number(req.params.orderId);
+  const rawItemIds = req.body.itemIds;
+
+  if (!Number.isInteger(orderId) || orderId <= 0 || !Array.isArray(rawItemIds) || rawItemIds.length === 0) {
+    return res.status(400).json({ success: false, error: "Select at least one valid order item" });
+  }
+
+  const itemIds = rawItemIds.map(Number);
+  if (
+    itemIds.some((itemId) => !Number.isInteger(itemId) || itemId <= 0) ||
+    new Set(itemIds).size !== itemIds.length
+  ) {
+    return res.status(400).json({ success: false, error: "Invalid order item selection" });
+  }
+
+  const placeholders = itemIds.map(() => "?").join(", ");
+  db.serialize(() => {
+    db.run("BEGIN IMMEDIATE", (beginError) => {
+      if (beginError) {
+        return res.status(500).json({ success: false, error: "Unable to start order update" });
+      }
+
+      const rollback = (status, message) => {
+        db.run("ROLLBACK", (rollbackError) => {
+          if (rollbackError) console.error("Unable to roll back new order creation:", rollbackError);
+          if (!res.headersSent) res.status(status).json({ success: false, error: message });
+        });
+      };
+
+      db.get(
+        "SELECT ShopId, Date FROM Orders WHERE OrderId = ? AND DeliveryDate IS NULL",
+        [orderId],
+        (orderError, order) => {
+          if (orderError) return rollback(500, "Unable to load the existing order");
+          if (!order) return rollback(404, "Undelivered order not found");
+
+          db.all(
+            `SELECT OrderItemId FROM OrderItem WHERE OrderId = ? AND OrderItemId IN (${placeholders})`,
+            [orderId, ...itemIds],
+            (itemsError, selectedItems) => {
+              if (itemsError) return rollback(500, "Unable to validate selected items");
+              if (selectedItems.length !== itemIds.length) {
+                return rollback(400, "One or more selected items no longer belong to this order");
+              }
+
+              db.run(
+                "INSERT INTO Orders (ShopId, Date) VALUES (?, ?)",
+                [order.ShopId, order.Date],
+                function (insertError) {
+                  if (insertError) return rollback(500, "Unable to create the new order");
+                  const newOrderId = this.lastID;
+
+                  db.run(
+                    `UPDATE OrderItem SET OrderId = ? WHERE OrderId = ? AND OrderItemId IN (${placeholders})`,
+                    [newOrderId, orderId, ...itemIds],
+                    function (updateError) {
+                      if (updateError) return rollback(500, "Unable to move the selected items");
+                      if (this.changes !== itemIds.length) {
+                        return rollback(409, "The selected items changed before they could be moved");
+                      }
+
+                      db.run("COMMIT", (commitError) => {
+                        if (commitError) return rollback(500, "Unable to finish creating the new order");
+                        res.json({ success: true, orderId: newOrderId, movedItems: itemIds.length });
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
 
 // Delete item
 app.post("/orders/:orderId/items/delete/:id", (req, res) => {
