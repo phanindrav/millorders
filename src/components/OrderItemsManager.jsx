@@ -27,6 +27,7 @@ import {
 import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import CallSplitRoundedIcon from '@mui/icons-material/CallSplitRounded';
 
 const defaultStatuses = [
   { StatusId: 1, Status: 'Pending' },
@@ -59,6 +60,9 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
   const [statusId, setStatusId] = useState('1');
   const [notes, setNotes] = useState('');
   const [editItemId, setEditItemId] = useState(null);
+  const [splitItem, setSplitItem] = useState(null);
+  const [splitBags, setSplitBags] = useState('');
+  const [splitSaving, setSplitSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [loading, setLoading] = useState(false);
   const itemInputRef = useRef(null);
@@ -237,6 +241,45 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
     }
   };
 
+  const openSplitDialog = (item) => {
+    setSplitItem(item);
+    setSplitBags('');
+  };
+
+  const handleSplit = async (event) => {
+    event.preventDefault();
+    const bagsToSplit = Number(splitBags);
+    const totalBags = Number(splitItem?.Bags);
+
+    if (!Number.isInteger(bagsToSplit) || bagsToSplit <= 0 || bagsToSplit >= totalBags) {
+      setSnackbar({ open: true, message: 'Enter a whole number of bags less than the row total.', severity: 'warning' });
+      return;
+    }
+
+    setSplitSaving(true);
+    try {
+      const response = await fetch(`/orders/${order.OrderId}/items/split/${splitItem.OrderItemId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ splitBags: bagsToSplit }),
+      });
+      const data = await response.json();
+      if (!response.ok || data?.success === false || data?.error) {
+        throw new Error(data?.error || 'Unable to split the order item.');
+      }
+
+      await loadItems();
+      if (onRefresh) onRefresh();
+      setSplitItem(null);
+      setSplitBags('');
+      setSnackbar({ open: true, message: `Split ${bagsToSplit} bags into a new row.`, severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
+    } finally {
+      setSplitSaving(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
@@ -386,6 +429,19 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
                       </TableCell>
                       <TableCell align="right">₹{formatAmount(getItemTotal(item))}</TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        <Tooltip title="Split bags into a new row">
+                          <span>
+                            <IconButton
+                              color="secondary"
+                              onClick={() => openSplitDialog(item)}
+                              aria-label={`Split bags for ${itemLookup[item.ItemId] || `item ${item.OrderItemId}`}`}
+                              size="small"
+                              disabled={Number(item.Bags) <= 1}
+                            >
+                              <CallSplitRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
                         <Tooltip title="Edit item">
                           <IconButton color="primary" onClick={() => handleEdit(item)} aria-label="Edit item" size="small">
                             <EditRoundedIcon fontSize="small" />
@@ -414,6 +470,42 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
         <DialogActions>
           <Button onClick={onClose}>Close</Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(splitItem)}
+        onClose={() => {
+          if (!splitSaving) setSplitItem(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <Box component="form" onSubmit={handleSplit}>
+          <DialogTitle>Split item bags</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Current row: {splitItem?.Bags || 0} bags. Enter the amount to move to a new row.
+            </Typography>
+            <TextField
+              autoFocus
+              label="Bags to split off"
+              type="number"
+              fullWidth
+              required
+              value={splitBags}
+              onChange={(event) => setSplitBags(event.target.value)}
+              inputProps={{ min: 1, max: Math.max(0, Number(splitItem?.Bags || 0) - 1), step: 1 }}
+              helperText={`Remaining on this row: ${Math.max(0, Number(splitItem?.Bags || 0) - (Number(splitBags) || 0))} bags`}
+              disabled={splitSaving}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSplitItem(null)} disabled={splitSaving}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={splitSaving || !splitBags}>
+              {splitSaving ? 'Splitting…' : 'Split bags'}
+            </Button>
+          </DialogActions>
+        </Box>
       </Dialog>
 
       <Snackbar

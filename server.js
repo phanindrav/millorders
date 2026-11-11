@@ -1329,10 +1329,10 @@ app.post("/orders/:orderId/items/edit/:id", (req, res) => {
 });
 
 app.post("/orders/:orderId/items/split/:id", (req, res) => {
-  const { id } = req.params;
-  const splitBags = parseInt(req.body.splitBags, 10);
+  const { id, orderId } = req.params;
+  const splitBags = Number(req.body.splitBags);
 
-  if (!splitBags || splitBags <= 0) {
+  if (!Number.isInteger(splitBags) || splitBags <= 0) {
     return res.json({ success: false, error: "Invalid split quantity" });
   }
 
@@ -1347,8 +1347,8 @@ app.post("/orders/:orderId/items/split/:id", (req, res) => {
      LEFT JOIN Status s ON s.StatusId = oi.StatusId
      LEFT JOIN Rice r ON r.RiceId = i.RiceId
      LEFT JOIN Brand b ON b.BrandId = i.BrandId
-     WHERE oi.OrderItemId = ?`,
-    [id],
+     WHERE oi.OrderItemId = ? AND oi.OrderId = ?`,
+    [id, orderId],
     function (err, item) {
       if (err || !item) {
         return res.json({ success: false, error: "Item not found" });
@@ -1362,8 +1362,8 @@ app.post("/orders/:orderId/items/split/:id", (req, res) => {
 
       // 2️⃣ Update existing row
       db.run(
-        "UPDATE OrderItem SET Bags = ? WHERE OrderItemId = ?",
-        [remaining, id],
+        "UPDATE OrderItem SET Bags = ? WHERE OrderItemId = ? AND OrderId = ?",
+        [remaining, id, orderId],
         function (err) {
           if (err || this.changes === 0) {
             return res.json({ success: false, error: "Update failed" });
