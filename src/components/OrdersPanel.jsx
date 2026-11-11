@@ -23,6 +23,7 @@ import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRou
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import LocalShippingRoundedIcon from '@mui/icons-material/LocalShippingRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DataTable from './DataTable';
 import OrderItemsManager from './OrderItemsManager';
 
@@ -91,6 +92,13 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
   const [createShopDialogOpen, setCreateShopDialogOpen] = useState(false);
   const [shopForm, setShopForm] = useState({ ShopName: '', Place: '', Address: '', PhoneNumber: '', GST: '', AgentId: '' });
   const [shopsLoading, setShopsLoading] = useState(false);
+  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+  const [assignmentOrder, setAssignmentOrder] = useState(null);
+  const [assignmentAgentId, setAssignmentAgentId] = useState('');
+  const [assignmentShopId, setAssignmentShopId] = useState('');
+  const [assignmentShops, setAssignmentShops] = useState([]);
+  const [assignmentShopsLoading, setAssignmentShopsLoading] = useState(false);
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('jwtToken');
@@ -137,6 +145,27 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
       console.error('Failed to load shops', error);
     } finally {
       setShopsLoading(false);
+    }
+  };
+
+  const loadAssignmentShops = async (agentId) => {
+    if (!agentId) {
+      setAssignmentShops([]);
+      return;
+    }
+
+    setAssignmentShopsLoading(true);
+    try {
+      const response = await fetch(`${apiBase}/api/agents/${agentId}/shops`, { headers: getAuthHeaders() });
+      if (!response.ok) throw new Error('Unable to load shops for this agent.');
+      const data = await response.json();
+      setAssignmentShops(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load shops for order assignment', error);
+      setAssignmentShops([]);
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
+    } finally {
+      setAssignmentShopsLoading(false);
     }
   };
 
@@ -289,6 +318,47 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
     }
   };
 
+  const openAssignmentDialog = (order) => {
+    setAssignmentOrder(order);
+    setAssignmentAgentId(String(order.AgentId || ''));
+    setAssignmentShopId(String(order.ShopId || ''));
+    setAssignmentDialogOpen(true);
+    loadAssignmentShops(String(order.AgentId || ''));
+  };
+
+  const handleAssignmentAgentChange = (event) => {
+    const nextAgentId = event.target.value;
+    setAssignmentAgentId(nextAgentId);
+    setAssignmentShopId('');
+    loadAssignmentShops(nextAgentId);
+  };
+
+  const handleAssignmentSave = async () => {
+    if (!assignmentOrder?.OrderId || !assignmentAgentId || !assignmentShopId) {
+      setSnackbar({ open: true, message: 'Please choose an agent and a shop.', severity: 'warning' });
+      return;
+    }
+
+    setAssignmentSaving(true);
+    try {
+      const response = await fetch(`${apiBase}/api/orders/${assignmentOrder.OrderId}/assignment`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify({ AgentId: assignmentAgentId, ShopId: assignmentShopId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Unable to update order assignment.');
+
+      await loadOrders(selectedAgentId);
+      setAssignmentDialogOpen(false);
+      setSnackbar({ open: true, message: 'Order assignment updated.', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
+    } finally {
+      setAssignmentSaving(false);
+    }
+  };
+
   const openItemsDialog = (order) => {
     setSelectedOrder(order);
     setItemsDialogOpen(true);
@@ -351,6 +421,11 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
         <Tooltip title="Set delivery date">
           <Button size="small" variant="outlined" color="primary" onClick={() => openDeliveryDialog(order)} aria-label="Set delivery date">
             <LocalShippingRoundedIcon fontSize="small" />
+          </Button>
+        </Tooltip>
+        <Tooltip title="Change shop or agent">
+          <Button size="small" variant="outlined" color="primary" onClick={() => openAssignmentDialog(order)} aria-label={`Change shop or agent for order ${order.OrderId}`}>
+            <EditRoundedIcon fontSize="small" />
           </Button>
         </Tooltip>
         <Tooltip title="Delete order">
@@ -549,6 +624,54 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
             </DialogActions>
           </Box>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={assignmentDialogOpen} onClose={() => setAssignmentDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Change order shop and agent</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Agent"
+              fullWidth
+              required
+              value={assignmentAgentId}
+              onChange={handleAssignmentAgentChange}
+            >
+              {agents.map((agent) => (
+                <MenuItem key={agent.AgentId} value={String(agent.AgentId)}>
+                  {agent.AgentName}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Shop"
+              fullWidth
+              required
+              value={assignmentShopId}
+              onChange={(event) => setAssignmentShopId(event.target.value)}
+              disabled={!assignmentAgentId || assignmentShopsLoading || assignmentShops.length === 0}
+              helperText={assignmentShopsLoading ? 'Loading shops...' : ''}
+            >
+              {assignmentShops.map((shop) => (
+                <MenuItem key={shop.ShopId} value={String(shop.ShopId)}>
+                  {`${shop.ShopName || ''}${shop.Place ? ` • ${shop.Place}` : ''}`}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAssignmentDialogOpen(false)} disabled={assignmentSaving}>Cancel</Button>
+          <Button
+            onClick={handleAssignmentSave}
+            variant="contained"
+            disabled={assignmentSaving || assignmentShopsLoading || !assignmentAgentId || !assignmentShopId}
+          >
+            Save
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog open={deliveryDialogOpen} onClose={() => setDeliveryDialogOpen(false)} maxWidth="sm" fullWidth>

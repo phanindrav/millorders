@@ -876,6 +876,8 @@ app.get("/api/orders/:agentId", authenticateToken, (req, res) => {
     SELECT 
       o.OrderId, 
       o.Date, 
+      o.ShopId,
+      sh.AgentId,
       a.AgentName, 
       sh.ShopName,
       sh.Place,
@@ -952,6 +954,53 @@ app.post("/api/orders", authenticateToken, (req, res) => {
       return res.json({ success: true, orderId: this.lastID });
     });
   });
+});
+
+app.put("/api/orders/:id/assignment", authenticateToken, (req, res) => {
+  const { AgentId, ShopId } = req.body;
+
+  if (!AgentId || !ShopId) {
+    return res.status(400).json({ error: "AgentId and ShopId are required" });
+  }
+
+  db.get(
+    "SELECT OrderId, Date FROM Orders WHERE OrderId = ? AND DeliveryDate IS NULL",
+    [req.params.id],
+    (orderError, order) => {
+      if (orderError) return res.status(500).json({ error: "Unable to load order" });
+      if (!order) return res.status(404).json({ error: "Undelivered order not found" });
+
+      db.get(
+        "SELECT ShopId FROM Shop WHERE ShopId = ? AND AgentId = ?",
+        [ShopId, AgentId],
+        (shopError, shop) => {
+          if (shopError) return res.status(500).json({ error: "Unable to validate shop assignment" });
+          if (!shop) return res.status(400).json({ error: "Shop does not belong to the selected agent" });
+
+          db.get(
+            "SELECT OrderId FROM Orders WHERE Date = ? AND ShopId = ? AND OrderId != ?",
+            [order.Date, ShopId, req.params.id],
+            (duplicateError, duplicateOrder) => {
+              if (duplicateError) return res.status(500).json({ error: "Unable to validate order assignment" });
+              if (duplicateOrder) {
+                return res.status(409).json({ error: "An order already exists for this shop and date" });
+              }
+
+              db.run(
+                "UPDATE Orders SET ShopId = ? WHERE OrderId = ? AND DeliveryDate IS NULL",
+                [ShopId, req.params.id],
+                function (updateError) {
+                  if (updateError) return res.status(500).json({ error: "Unable to update order assignment" });
+                  if (!this.changes) return res.status(404).json({ error: "Undelivered order not found" });
+                  res.json({ message: "Order assignment updated successfully" });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
 });
 
 // Delete order by ID
