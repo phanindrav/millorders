@@ -737,7 +737,8 @@ app.get("/api/items", (req, res) => {
 
     const sql = `
         SELECT 
-           i.ItemId, r.RiceType Name, b.BrandName Brand, i.Ord, i.Grp, i.RiceId, i.BrandId, i.IsActive
+           i.ItemId, r.RiceType Name, b.BrandName Brand, i.Ord, i.Grp, i.RiceId, i.BrandId, i.IsActive,
+           EXISTS (SELECT 1 FROM OrderItem oi WHERE oi.ItemId = i.ItemId) AS IsUsedInOrders
         FROM Item i
         LEFT JOIN Rice r ON i.RiceId = r.RiceId
         LEFT JOIN Brand b ON i.BrandId = b.BrandId
@@ -765,11 +766,151 @@ app.get("/api/items/:id", authenticateToken, (req, res) => {
   });
 });
 
-app.post("/api/items", (req, res) => {
-  const { Name, Brand } = req.body;
-  db.run("INSERT INTO Item (Name, Brand, IsActive) VALUES (?,?,1)", [Name, Brand || null], function (err) {
+app.get("/api/rices", (req, res) => {
+  db.all("SELECT RiceId, RiceType, Odr, TypeId, IsActive FROM Rice ORDER BY Odr, RiceType", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post("/api/rices", authenticateToken, (req, res) => {
+  const riceType = String(req.body.RiceType || "").trim();
+  const odr = Number(req.body.Odr);
+  const typeId = Number(req.body.TypeId);
+  if (!riceType) return res.status(400).json({ error: "Rice type is required" });
+  if (!Number.isInteger(odr) || odr < 1) return res.status(400).json({ error: "A positive whole-number order is required" });
+  if (![1, 2, 3].includes(typeId)) return res.status(400).json({ error: "A valid rice type category is required" });
+
+  db.run("INSERT INTO Rice (RiceType, Odr, TypeId) VALUES (?, ?, ?)", [riceType, odr, typeId], function (err) {
     if (err) return res.status(400).json({ error: err.message });
-    res.json({ ItemId: this.lastID, Name, Brand, IsActive: 1 });
+    res.status(201).json({ RiceId: this.lastID, RiceType: riceType, Odr: odr, TypeId: typeId });
+  });
+});
+
+app.put("/api/rices/:id", authenticateToken, (req, res) => {
+  const riceType = String(req.body.RiceType || "").trim();
+  const odr = Number(req.body.Odr);
+  const typeId = Number(req.body.TypeId);
+  if (!riceType) return res.status(400).json({ error: "Rice type is required" });
+  if (!Number.isInteger(odr) || odr < 1) return res.status(400).json({ error: "A positive whole-number order is required" });
+  if (![1, 2, 3].includes(typeId)) return res.status(400).json({ error: "A valid rice type category is required" });
+
+  db.run("UPDATE Rice SET RiceType = ?, Odr = ?, TypeId = ? WHERE RiceId = ?", [riceType, odr, typeId, req.params.id], function (err) {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!this.changes) return res.status(404).json({ error: "Rice type not found" });
+    res.json({ RiceId: Number(req.params.id), RiceType: riceType, Odr: odr, TypeId: typeId });
+  });
+});
+
+app.delete("/api/rices/:id", authenticateToken, (req, res) => {
+  db.get("SELECT COUNT(*) AS count FROM Item WHERE RiceId = ?", [req.params.id], (checkError, row) => {
+    if (checkError) return res.status(500).json({ error: checkError.message });
+    if (row.count) return res.status(409).json({ error: "Rice type is used by one or more items" });
+
+    db.run("DELETE FROM Rice WHERE RiceId = ?", [req.params.id], function (err) {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!this.changes) return res.status(404).json({ error: "Rice type not found" });
+      res.json({ deleted: this.changes });
+    });
+  });
+});
+
+app.get("/api/brands", (req, res) => {
+  db.all("SELECT BrandId, BrandName, Odr FROM Brand ORDER BY Odr, BrandName", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post("/api/brands", authenticateToken, (req, res) => {
+  const brandName = String(req.body.BrandName || "").trim();
+  if (!brandName) return res.status(400).json({ error: "Brand name is required" });
+
+  db.run("INSERT INTO Brand (BrandName) VALUES (?)", [brandName], function (err) {
+    if (err) return res.status(400).json({ error: err.message });
+    res.status(201).json({ BrandId: this.lastID, BrandName: brandName });
+  });
+});
+
+app.put("/api/brands/:id", authenticateToken, (req, res) => {
+  const brandName = String(req.body.BrandName || "").trim();
+  if (!brandName) return res.status(400).json({ error: "Brand name is required" });
+
+  db.run("UPDATE Brand SET BrandName = ? WHERE BrandId = ?", [brandName, req.params.id], function (err) {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!this.changes) return res.status(404).json({ error: "Brand not found" });
+    res.json({ BrandId: Number(req.params.id), BrandName: brandName });
+  });
+});
+
+app.delete("/api/brands/:id", authenticateToken, (req, res) => {
+  db.get("SELECT COUNT(*) AS count FROM Item WHERE BrandId = ?", [req.params.id], (checkError, row) => {
+    if (checkError) return res.status(500).json({ error: checkError.message });
+    if (row.count) return res.status(409).json({ error: "Brand is used by one or more items" });
+
+    db.run("DELETE FROM Brand WHERE BrandId = ?", [req.params.id], function (err) {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!this.changes) return res.status(404).json({ error: "Brand not found" });
+      res.json({ deleted: this.changes });
+    });
+  });
+});
+
+const saveItem = (req, res, itemId) => {
+  const riceId = Number(req.body.RiceId);
+  const brandId = Number(req.body.BrandId);
+  const isActive = req.body.IsActive === false || req.body.IsActive === 0 ? 0 : 1;
+  if (!Number.isInteger(riceId) || riceId <= 0 || !Number.isInteger(brandId) || brandId <= 0) {
+    return res.status(400).json({ error: "Select a valid rice type and brand" });
+  }
+
+  db.get(
+    `SELECT
+      EXISTS(SELECT 1 FROM Rice WHERE RiceId = ?) AS hasRice,
+      EXISTS(SELECT 1 FROM Brand WHERE BrandId = ?) AS hasBrand`,
+    [riceId, brandId],
+    (checkError, references) => {
+      if (checkError) return res.status(500).json({ error: checkError.message });
+      if (!references.hasRice || !references.hasBrand) {
+        return res.status(400).json({ error: "Selected rice type or brand does not exist" });
+      }
+
+      const sql = itemId
+        ? "UPDATE Item SET RiceId = ?, BrandId = ?, IsActive = ? WHERE ItemId = ?"
+        : "INSERT INTO Item (RiceId, BrandId, IsActive) VALUES (?, ?, ?)";
+      const params = itemId ? [riceId, brandId, isActive, itemId] : [riceId, brandId, isActive];
+      db.run(sql, params, function (err) {
+        if (err) return res.status(400).json({ error: err.message });
+        if (itemId && !this.changes) return res.status(404).json({ error: "Item not found" });
+        res.status(itemId ? 200 : 201).json({
+          ItemId: itemId ? Number(itemId) : this.lastID,
+          RiceId: riceId,
+          BrandId: brandId,
+          IsActive: isActive,
+        });
+      });
+    }
+  );
+};
+
+app.post("/api/items", authenticateToken, (req, res) => {
+  saveItem(req, res, null);
+});
+
+app.put("/api/items/:id", authenticateToken, (req, res) => {
+  saveItem(req, res, req.params.id);
+});
+
+app.delete("/api/items/:id", authenticateToken, (req, res) => {
+  db.get("SELECT COUNT(*) AS count FROM OrderItem WHERE ItemId = ?", [req.params.id], (checkError, row) => {
+    if (checkError) return res.status(500).json({ error: checkError.message });
+    if (row.count) return res.status(409).json({ error: "Item is used by one or more orders" });
+
+    db.run("DELETE FROM Item WHERE ItemId = ?", [req.params.id], function (err) {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!this.changes) return res.status(404).json({ error: "Item not found" });
+      res.json({ deleted: this.changes });
+    });
   });
 });
 
@@ -784,25 +925,6 @@ app.patch("/api/items/:id/active", authenticateToken, (req, res) => {
       res.json({ ItemId: Number(req.params.id), IsActive: isActive });
     }
   );
-});
-
-app.put("/api/items/:id", authenticateToken, (req, res) => {
-  const { Name, Brand } = req.body;
-  db.run(
-    "UPDATE Item SET Name=?, Brand=? WHERE ItemId=?",
-    [Name, Brand || null, req.params.id],
-    function (err) {
-      if (err) return res.status(400).json({ error: err.message });
-      res.json({ changes: this.changes });
-    }
-  );
-});
-
-app.delete("/api/items/:id", authenticateToken, (req, res) => {
-  db.run("DELETE FROM Item WHERE ItemId=?", [req.params.id], function (err) {
-    if (err) return res.status(400).json({ error: err.message });
-    res.json({ deleted: this.changes });
-  });
 });
 
 /* ---------- API: SHOPS (JOIN with Agent) ---------- */
@@ -1071,14 +1193,6 @@ app.delete("/api/orders/:id/delivery", authenticateToken, (req, res) => {
     }
 
     res.json({ message: "DeliveryDate cleared successfully" });
-  });
-});
-
-app.post("/api/items", (req, res) => {
-  const { Name, Brand } = req.body;
-  db.run("INSERT INTO Item (Name, Brand) VALUES (?,?)", [Name, Brand || null], function (err) {
-    if (err) return res.status(400).json({ error: err.message });
-    res.json({ ItemId: this.lastID, Name, Brand });
   });
 });
 
