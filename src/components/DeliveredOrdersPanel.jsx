@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import apiBase from '../apiBase';
 import {
   Alert,
   Box,
@@ -72,7 +73,7 @@ function DeliveredOrdersPanel() {
     if (!editOrder?.OrderId || !editDate) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/orders/${editOrder.OrderId}/delivery`, {
+      const response = await fetch(`${apiBase}/api/orders/${editOrder.OrderId}/delivery`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ DeliveryDate: editDate }),
@@ -90,7 +91,7 @@ function DeliveredOrdersPanel() {
     if (!window.confirm(`Mark order #${order.OrderId} as not delivered?`)) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/orders/${order.OrderId}/delivery`, {
+      const response = await fetch(`${apiBase}/api/orders/${order.OrderId}/delivery`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -117,7 +118,7 @@ function DeliveredOrdersPanel() {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch(`http://localhost:3000/api/reports/daily-report/${selectedDate}`, {
+        const response = await fetch(`${apiBase}/api/reports/daily-report/${selectedDate}`, {
           headers: getAuthHeaders(),
         });
         const data = await response.json();

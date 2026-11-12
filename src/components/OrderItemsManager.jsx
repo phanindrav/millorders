@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import apiBase from '../apiBase';
 import {
   Alert,
   Autocomplete,
@@ -76,8 +77,6 @@ function OrderItemsManager({ order, open, onClose, onRefresh }) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   };
-
-  const apiBase = 'http://localhost:3000';
 
   const loadCatalog = async () => {
     try {

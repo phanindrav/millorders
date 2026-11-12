@@ -13,6 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "rice-mill-secret";
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, "dist")));
 app.use(express.static(path.join(__dirname, "public")));
 
 // EJS setup
@@ -2233,5 +2234,5 @@ createCrudRoutes("OrderItem", "OrderItemId");
 
 // Start server
 app.listen(PORT,  "0.0.0.0",  () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server listening on port ${PORT}`);
 });

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import apiBase from '../apiBase';
 import {
   Alert,
   Box,
@@ -35,8 +36,6 @@ function AgentsPanel() {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   };
-
-  const apiBase = 'http://localhost:3000';
 
   const loadData = async () => {
     try {

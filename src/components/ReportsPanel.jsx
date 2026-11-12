@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import apiBase from '../apiBase';
 import html2canvas from 'html2canvas';
 import {
   Alert,
@@ -81,8 +82,6 @@ function ReportsPanel() {
   const [checkReport, setCheckReport] = useState([]);
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-  const apiBase = 'http://localhost:3000';
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('jwtToken');

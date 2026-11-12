@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import apiBase from '../apiBase';
 import {
   Alert,
   Box,
@@ -26,7 +27,6 @@ import AddCircleOutlineRoundedIcon from '@mui/icons-material/AddCircleOutlineRou
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 
-const apiBase = 'http://localhost:3000';
 const tabs = [
   { key: 'items', label: 'Items' },
   { key: 'rices', label: 'Rice' },

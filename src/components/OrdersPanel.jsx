@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import apiBase from '../apiBase';
 import {
   Alert,
   Autocomplete,
@@ -106,8 +107,6 @@ function OrdersPanel({ agents = [], agentSummary = [], initialAgentId = '' }) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   };
-
-  const apiBase = 'http://localhost:3000';
 
   const loadOrders = async (agentId = selectedAgentId) => {
     if (!agentId) {

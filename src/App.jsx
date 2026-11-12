@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import apiBase from './apiBase';
 import {
   AppBar,
   Avatar,
@@ -38,7 +39,6 @@ import ItemsPanel from './components/ItemsPanel';
 import ReportsPanel from './components/ReportsPanel';
 import LoginPage from './components/LoginPage';
 
-const apiBase = 'http://localhost:3000';
 const api = {
   agents: `${apiBase}/api/agents`,
   shops: `${apiBase}/api/shops`,
