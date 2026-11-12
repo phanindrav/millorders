@@ -205,6 +205,62 @@ function DeliveredOrdersPanel() {
     [filteredOrders]
   );
 
+  const typeSummary = useMemo(() => {
+    const typeMap = new Map();
+
+    orders.forEach((row) => {
+      const typeKey = String(row.TypeId ?? row.TypeName ?? 'Unknown');
+      if (!typeMap.has(typeKey)) {
+        typeMap.set(typeKey, {
+          type: row.TypeName || '—',
+          totalQuintals: 0,
+          totalAmount: 0,
+          items: new Map(),
+        });
+      }
+
+      const type = typeMap.get(typeKey);
+      const quintals = Number(row.Quintals) || 0;
+      const amount = Number(row.Amount) || 0;
+      const itemKey = String(row.ItemId ?? row.ItemName ?? 'Unknown');
+
+      type.totalQuintals += quintals;
+      type.totalAmount += amount;
+
+      if (!type.items.has(itemKey)) {
+        type.items.set(itemKey, {
+          ItemName: row.ItemName || '—',
+          Quintals: 0,
+          Amount: 0,
+        });
+      }
+
+      const item = type.items.get(itemKey);
+      item.Quintals += quintals;
+      item.Amount += amount;
+    });
+
+    const types = Array.from(typeMap.values())
+      .map((type) => ({
+        ...type,
+        items: Array.from(type.items.values())
+          .map((item) => ({
+            ...item,
+            AvgRate: item.Quintals > 0 ? item.Amount / item.Quintals : 0,
+          }))
+          .sort((first, second) => second.Amount - first.Amount),
+      }))
+      .sort((first, second) => second.totalAmount - first.totalAmount);
+
+    return {
+      types,
+      grandTotal: types.reduce((summary, type) => ({
+        quintals: summary.quintals + type.totalQuintals,
+        amount: summary.amount + type.totalAmount,
+      }), { quintals: 0, amount: 0 }),
+    };
+  }, [orders]);
+
   return (
     <Box>
       <Card variant="outlined" sx={{ mb: 3 }}>
@@ -343,6 +399,63 @@ function DeliveredOrdersPanel() {
               </Table>
             </TableContainer>
           )}
+        </CardContent>
+      </Card>
+
+      <Card variant="outlined" sx={{ mt: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2 }}>Type summary</Typography>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Item</TableCell>
+                  <TableCell align="right">Quintals</TableCell>
+                  <TableCell align="right">Avg Rate</TableCell>
+                  <TableCell align="right">Total Amount</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {typeSummary.types.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                      No type totals available.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {typeSummary.types.map((type, index) => (
+                      <React.Fragment key={`${type.type}-${index}`}>
+                        <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}>
+                          <TableCell sx={{ fontWeight: 700 }}>{type.type}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>Type total</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(type.totalQuintals)}</TableCell>
+                          <TableCell align="right">—</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(type.totalAmount)}</TableCell>
+                        </TableRow>
+                        {type.items.map((item, itemIndex) => (
+                          <TableRow key={`${type.type}-${item.ItemName}-${itemIndex}`} hover>
+                            <TableCell />
+                            <TableCell>{item.ItemName}</TableCell>
+                            <TableCell align="right">{formatNumber(item.Quintals)}</TableCell>
+                            <TableCell align="right">{formatNumber(item.AvgRate)}</TableCell>
+                            <TableCell align="right">{formatNumber(item.Amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.03)' }}>
+                      <TableCell colSpan={2} sx={{ fontWeight: 700 }}>Grand Total</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(typeSummary.grandTotal.quintals)}</TableCell>
+                      <TableCell align="right">—</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{formatNumber(typeSummary.grandTotal.amount)}</TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </CardContent>
       </Card>
 
