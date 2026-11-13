@@ -56,6 +56,18 @@ function formatNumber(value) {
   });
 }
 
+function formatOrderSummaryTimestamp(date) {
+  const day = date.getDate();
+  const suffix = day % 100 >= 11 && day % 100 <= 13
+    ? 'th'
+    : ({ 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] || 'th');
+  const hours = String(date.getHours() % 12 || 12).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const period = date.getHours() >= 12 ? 'pm' : 'am';
+
+  return `${day}${suffix} ${date.toLocaleString('en-US', { month: 'short' })}, ${String(date.getFullYear()).slice(-2)} - ${hours}:${minutes} ${period}`;
+}
+
 function App() {
   const [agents, setAgents] = useState([]);
   const [shops, setShops] = useState([]);
@@ -211,7 +223,6 @@ function App() {
   );
 
   const handleSendBrandSummaryWhatsApp = () => {
-    const phoneNumber = '919866959496';
     const itemLines = groupedBrandSummary.flatMap((item) => [
       `*${item.ItemName || '—'} : ${formatNumber(item.Quintals)} Qtls*`,
       ...item.brandGroups.flatMap((group) => [
@@ -220,23 +231,14 @@ function App() {
       ]),
       '',
     ]);
-    const totalQuintals = groupedBrandSummary.reduce((sum, item) => sum + Number(item.Quintals || 0), 0);
-    const totalBags = groupedBrandSummary.reduce(
-      (sum, item) => sum + item.brandGroups.reduce(
-        (itemSum, group) => itemSum + group.rows.reduce((groupSum, row) => groupSum + Number(row.Bags || 0), 0),
-        0
-      ),
-      0
-    );
     const message = [
-      'Order List Summary',
+      '*Order List Summary*',
+      formatOrderSummaryTimestamp(new Date()),
       '',
-      ...(itemLines.length ? itemLines : ['No pending orders']),
-      '',
-      `Grand Total: ${totalBags} bags | ${formatNumber(totalQuintals)} Qtls`,
+      ...(itemLines.length ? itemLines : ['No pending orders'])
     ].join('\n');
 
-    window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   const groupedAgentSummary = useMemo(
