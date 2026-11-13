@@ -210,6 +210,35 @@ function App() {
     [brandSummary]
   );
 
+  const handleSendBrandSummaryWhatsApp = () => {
+    const phoneNumber = '919866959496';
+    const itemLines = groupedBrandSummary.flatMap((item) => [
+      `*${item.ItemName || '—'} : ${formatNumber(item.Quintals)} Qtls*`,
+      ...item.brandGroups.flatMap((group) => [
+        `  *${group.brandName}:*`,
+        ...group.rows.map((row) => `     ${row.Kgs} kgs : ${row.Bags}`),
+      ]),
+      '',
+    ]);
+    const totalQuintals = groupedBrandSummary.reduce((sum, item) => sum + Number(item.Quintals || 0), 0);
+    const totalBags = groupedBrandSummary.reduce(
+      (sum, item) => sum + item.brandGroups.reduce(
+        (itemSum, group) => itemSum + group.rows.reduce((groupSum, row) => groupSum + Number(row.Bags || 0), 0),
+        0
+      ),
+      0
+    );
+    const message = [
+      'Order List Summary',
+      '',
+      ...(itemLines.length ? itemLines : ['No pending orders']),
+      '',
+      `Grand Total: ${totalBags} bags | ${formatNumber(totalQuintals)} Qtls`,
+    ].join('\n');
+
+    window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+  };
+
   const groupedAgentSummary = useMemo(
     () =>
       [...filteredAgentSummary]
@@ -524,13 +553,20 @@ function App() {
                     py: 2,
                   }}
                 >
-                  <Typography variant="h6" fontWeight="bold">
-                    Item &amp; Brand Order Summary
-                  </Typography>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1}>
+                    <Box>
+                      <Typography variant="h6" fontWeight="bold">
+                        Item &amp; Brand Order Summary
+                      </Typography>
 
-                  <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                    Pending quantities by item and brand
-                  </Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                        Pending quantities by item and brand
+                      </Typography>
+                    </Box>
+                    <Button variant="contained" color="success" onClick={handleSendBrandSummaryWhatsApp}>
+                      Send WhatsApp
+                    </Button>
+                  </Stack>
                 </Box>
 
                 <CardContent sx={{ p: 0 }}>
